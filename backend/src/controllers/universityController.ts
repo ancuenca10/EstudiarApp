@@ -1,125 +1,162 @@
-import { Request, Response } from 'express';
-import University from '../models/University';
+import { NextFunction, Request, Response } from 'express';
+import { query } from '../config/db';
+import { AppError } from '../middleware/errorHandler';
 
-// ✅ CONTROLADORES NUEVOS (AGREGAR ESTOS)
-export const getUniversities = async (req: Request, res: Response) => {
-  try {
-    const universities = await University.find();
-    res.json(universities);
-  } catch (error) {
-    console.error('Error fetching universities:', error);
-    res.status(500).json({ error: 'Error interno del servidor al obtener universidades' });
-  }
+type UniversityRow = {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  ciudad: string;
+  user_id: string;
+  estado: 'pendiente' | 'aprobado';
+  creado_en: Date;
+  actualizado_en: Date;
 };
 
-export const getUniversityById = async (req: Request, res: Response) => {
-  try {
-    const university = await University.findById(req.params.id);
-    if (!university) {
-      return res.status(404).json({ error: 'Universidad no encontrada' });
-    }
-    res.json(university);
-  } catch (error) {
-    console.error('Error fetching university:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
+const normalizeText = (value: unknown) => {
+  return typeof value === 'string' ? value.trim() : '';
 };
 
-// ✅ TUS CONTROLADORES EXISTENTES
-export const createUniversity = async (req: Request, res: Response) => {
-  try {
-    const university = new University(req.body);
-    await university.save();
-    res.status(201).json(university);
-  } catch (error) {
-    res.status(400).json({ error: 'Error al crear universidad' });
-  }
-};
+const publicUniversityFields = (university: UniversityRow) => ({
+  id: university.id,
+  nombre: university.nombre,
+  descripcion: university.descripcion,
+  ciudad: university.ciudad,
+  userId: university.user_id,
+  estado: university.estado,
+  creadoEn: university.creado_en,
+  actualizadoEn: university.actualizado_en,
+});
 
-export const updateUniversity = async (req: Request, res: Response) => {
+export const createUniversity = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const university = await University.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-    if (!university) {
-      return res.status(404).json({ error: 'Universidad no encontrada' });
-    }
-    res.json(university);
-  } catch (error) {
-    res.status(400).json({ error: 'Error al actualizar universidad' });
-  }
-};
+    const nombre = normalizeText(req.body.nombre || req.body.name);
+    const descripcion = normalizeText(req.body.descripcion || req.body.description);
+    const ciudad = normalizeText(req.body.ciudad || req.body.city);
 
-export const deleteUniversity = async (req: Request, res: Response) => {
-  try {
-    const university = await University.findByIdAndDelete(req.params.id);
-    if (!university) {
-      return res.status(404).json({ error: 'Universidad no encontrada' });
-    }
-    res.json({ message: 'Universidad eliminada exitosamente' });
-  } catch (error) {
-    res.status(500).json({ error: 'Error al eliminar universidad' });
-  }
-};
-
-export const addProgram = async (req: Request, res: Response) => {
-  try {
-    const university = await University.findById(req.params.id);
-    if (!university) {
-      return res.status(404).json({ error: 'Universidad no encontrada' });
+    if (!nombre || !descripcion || !ciudad) {
+      throw new AppError('nombre, descripcion y ciudad son obligatorios', 400);
     }
 
-    university.programs.push(req.body);
-    await university.save();
-
-    res.json(university);
-  } catch (error) {
-    res.status(400).json({ error: 'Error al agregar programa' });
-  }
-};
-
-export const updateProgram = async (req: Request, res: Response) => {
-  try {
-    const university = await University.findById(req.params.id);
-    if (!university) {
-      return res.status(404).json({ error: 'Universidad no encontrada' });
+    if (!req.user?.id) {
+      throw new AppError('Usuario no autenticado', 401);
     }
 
-    const programIndex = university.programs.findIndex(
-      (p: any) => p._id.toString() === req.params.programId
+    const result = await query(
+      `INSERT INTO universidades (nombre, descripcion, ciudad, user_id, estado)
+       VALUES ($1, $2, $3, $4, 'pendiente')
+       RETURNING id, nombre, descripcion, ciudad, user_id, estado, creado_en, actualizado_en`,
+      [nombre, descripcion, ciudad, req.user.id]
     );
 
-    if (programIndex === -1) {
-      return res.status(404).json({ error: 'Programa no encontrado' });
-    }
-
-    // ✅ SOLUCIÓN ELEGANTE: Actualizar solo los campos enviados
-    const program = university.programs[programIndex];
-    Object.assign(program, req.body);
-
-    await university.save();
-    res.json(university);
+    return res.status(201).json({
+      message: 'Universidad creada exitosamente',
+      universidad: publicUniversityFields(result.rows[0] as UniversityRow),
+    });
   } catch (error) {
-    res.status(400).json({ error: 'Error al actualizar programa' });
+    return next(error);
   }
 };
 
-export const deleteProgram = async (req: Request, res: Response) => {
+export const getUniversities = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const university = await University.findById(req.params.id);
-    if (!university) {
-      return res.status(404).json({ error: 'Universidad no encontrada' });
-    }
-
-    university.programs = university.programs.filter(
-      (p: any) => p._id.toString() !== req.params.programId
+    const result = await query(
+      `SELECT id, nombre, descripcion, ciudad, user_id, estado, creado_en, actualizado_en
+       FROM universidades
+       ORDER BY creado_en DESC`
     );
 
-    await university.save();
-    res.json(university);
+    return res.json({
+      universidades: result.rows.map((university) =>
+        publicUniversityFields(university as UniversityRow)
+      ),
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Error al eliminar programa' });
+    return next(error);
+  }
+};
+
+export const updateUniversity = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+    const nombre = normalizeText(req.body.nombre || req.body.name);
+    const descripcion = normalizeText(req.body.descripcion || req.body.description);
+    const ciudad = normalizeText(req.body.ciudad || req.body.city);
+    const estado = normalizeText(req.body.estado);
+
+    if (!nombre || !descripcion || !ciudad) {
+      throw new AppError('nombre, descripcion y ciudad son obligatorios', 400);
+    }
+
+    if (estado && !['pendiente', 'aprobado'].includes(estado)) {
+      throw new AppError('estado invalido', 400);
+    }
+
+    const result = await query(
+      `UPDATE universidades
+       SET nombre = $1,
+           descripcion = $2,
+           ciudad = $3,
+           estado = COALESCE(NULLIF($4, ''), estado),
+           actualizado_en = NOW()
+       WHERE id = $5
+       RETURNING id, nombre, descripcion, ciudad, user_id, estado, creado_en, actualizado_en`,
+      [nombre, descripcion, ciudad, estado, id]
+    );
+
+    if (!result.rowCount) {
+      throw new AppError('Universidad no encontrada', 404);
+    }
+
+    return res.json({
+      message: 'Universidad actualizada exitosamente',
+      universidad: publicUniversityFields(result.rows[0] as UniversityRow),
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const deleteUniversity = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      throw new AppError('id de universidad requerido', 400);
+    }
+
+    const result = await query(
+      `DELETE FROM universidades
+       WHERE id = $1
+       RETURNING id, nombre, descripcion, ciudad, user_id, estado, creado_en, actualizado_en`,
+      [id]
+    );
+
+    if (!result.rowCount) {
+      throw new AppError('Universidad no encontrada', 404);
+    }
+
+    return res.json({
+      message: 'Universidad eliminada exitosamente',
+      universidad: publicUniversityFields(result.rows[0] as UniversityRow),
+    });
+  } catch (error) {
+    return next(error);
   }
 };

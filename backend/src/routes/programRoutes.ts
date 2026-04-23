@@ -1,36 +1,52 @@
 import { Router } from 'express';
 import {
-  createUniversity,
-  deleteUniversity,
-  getUniversities,
-  updateUniversity,
-} from '../controllers/universityController';
+  approveProgram,
+  createProgram,
+  deleteProgram,
+  getAllProgramsForAdmin,
+  getApprovedPrograms,
+  updateProgram,
+} from '../controllers/programController';
 import { authorizeRoles, verificarToken } from '../middleware/auth';
 import { ROLES } from '../constants/roles';
 
 const router = Router();
 
-router.get('/', getUniversities);
+router.get(
+  '/admin/todos',
+  verificarToken,
+  authorizeRoles(ROLES.ASESOR, ROLES.ADMIN, ROLES.SUPERADMIN),
+  getAllProgramsForAdmin
+);
+
+router.get('/', getApprovedPrograms);
 
 router.post(
   '/',
   verificarToken,
+  authorizeRoles(ROLES.UNIVERSITY, ROLES.SUPERADMIN),
+  createProgram
+);
+
+router.put(
+  '/:id/aprobar',
+  verificarToken,
   authorizeRoles(ROLES.ASESOR, ROLES.ADMIN, ROLES.SUPERADMIN),
-  createUniversity
+  approveProgram
 );
 
 router.put(
   '/:id',
   verificarToken,
   authorizeRoles(ROLES.ASESOR, ROLES.ADMIN, ROLES.SUPERADMIN),
-  updateUniversity
+  updateProgram
 );
 
 router.delete(
   '/:id',
   verificarToken,
   authorizeRoles(ROLES.ASESOR, ROLES.ADMIN, ROLES.SUPERADMIN),
-  deleteUniversity
+  deleteProgram
 );
 
 export default router;

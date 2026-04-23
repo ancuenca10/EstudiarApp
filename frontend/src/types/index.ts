@@ -186,4 +186,93 @@ export interface ComparisonExportData {
   comparison: ComparisonResult
   recommendation: Recommendation
 }
+export interface Program {
+  id?: string
+  universityId?: string
+  status?: string
+  approvedAt?: string | null
+}
+
+export interface University {
+  id?: string
+  description?: string
+  status?: string
+  createdBy?: string
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+export type UserRole = 'USER' | 'UNIVERSITY' | 'ASESOR' | 'ADMIN' | 'SUPERADMIN' | 'user' | 'editor' | 'admin' | 'super_admin'
+
+export interface User {
+  id: string
+  _id?: string
+  email: string
+  name: string
+  role: UserRole
+  status?: string
+  avatar?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  emailVerified?: boolean
+  universityId?: string
+  permissions?: string[]
+}
+
+export interface LoginCredentials {
+  email: string
+  password: string
+  rememberMe?: boolean
+}
+
+export interface RegisterData {
+  email: string
+  password: string
+  name: string
+  role?: UserRole
+  universityId?: string
+  agreeToTerms?: boolean
+}
+
+export interface LoginResponse {
+  user: User
+  token: string
+  refreshToken?: string
+  expiresIn?: number
+  requiresTwoFactor?: boolean
+}
+
+export interface RegisterResponse extends LoginResponse {
+  requiresEmailVerification?: boolean
+}
+
+export type AuthResponse = LoginResponse
+
+export interface ApiProgram {
+  id: string
+  nombre: string
+  descripcion: string
+  precio: number
+  modalidad: string
+  duracion: string
+  universidadId: string
+  creadoPor: string
+  estado: string
+  aprobadoPor: string | null
+  fechaAprobacion: string | null
+  creadoEn: string
+  actualizadoEn: string
+}
+
+export interface ApiUniversity {
+  id: string
+  nombre: string
+  descripcion: string
+  ciudad: string
+  userId: string
+  estado: string
+  creadoEn: string
+  actualizadoEn: string
+}
+
 export * from './reviews';

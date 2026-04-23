@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import HomeView from '../views/HomeView.vue';
+import { useAuthStore } from '@/stores/auth';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -80,6 +81,7 @@ const router = createRouter({
     {
       path: '/profile',
       name: 'profile',
+      alias: '/perfil',
       component: () => import('@/views/auth/ProfileView.vue'),
       meta: { requiresAuth: true, title: 'Mi Perfil' }
     },
@@ -88,13 +90,28 @@ const router = createRouter({
       path: '/admin',
       name: 'admin',
       component: () => import('@/views/admin/DashboardView.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true, title: 'Panel de Administración' }
+      meta: { requiresAuth: true, requiresSuperAdmin: true, title: 'Panel de Administración' }
+    },
+    {
+      path: '/admin/usuarios',
+      name: 'admin-users',
+      alias: '/admin/users',
+      component: () => import('@/views/admin/UsersView.vue'),
+      meta: { requiresAuth: true, requiresSuperAdmin: true, title: 'Gestionar Usuarios' }
+    },
+    {
+      path: '/admin/programas',
+      name: 'admin-programs',
+      alias: '/admin/programs',
+      component: () => import('@/views/admin/ProgramsView.vue'),
+      meta: { requiresAuth: true, requiresSuperAdmin: true, title: 'Aprobar Programas' }
     },
     {
       path: '/admin/universities',
       name: 'admin-universities',
+      alias: '/admin/universidades',
       component: () => import('@/views/admin/UniversitiesView.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true, title: 'Administrar Universidades' }
+      meta: { requiresAuth: true, requiresSuperAdmin: true, title: 'Administrar Universidades' }
     },
     {
       path: '/admin/reviews',
@@ -124,6 +141,34 @@ router.beforeEach((to, from, next) => {
   // - Tracking de analytics
   // - etc.
   
+  const authStore = useAuthStore();
+  authStore.checkAuth();
+
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+  const requiresGuest = to.matched.some(record => record.meta.requiresGuest);
+  const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin);
+  const requiresSuperAdmin = to.matched.some(record => record.meta.requiresSuperAdmin);
+
+  if (requiresAuth && !authStore.isAuthenticated) {
+    next({ name: 'login', query: { redirect: to.fullPath } });
+    return;
+  }
+
+  if (requiresGuest && authStore.isAuthenticated) {
+    next({ path: '/perfil' });
+    return;
+  }
+
+  if (requiresAdmin && !authStore.isAdmin) {
+    next({ name: 'home' });
+    return;
+  }
+
+  if (requiresSuperAdmin && !authStore.isSuperAdmin) {
+    next({ name: 'home' });
+    return;
+  }
+
   next();
 });
 

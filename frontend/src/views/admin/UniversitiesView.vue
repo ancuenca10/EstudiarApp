@@ -1,497 +1,313 @@
-<!-- src/views/admin/UniversitiesView.vue -->
 <template>
-  <div class="universities-view">
-    <div class="container">
-      <!-- Header -->
-      <div class="header">
-        <h1>🎓 Gestión de Universidades</h1>
-        <p class="subtitle">Administra la información de universidades y programas</p>
-        
-        <div class="header-actions">
-          <button @click="showCreateModal = true" class="btn-primary">
-            <span>+</span> Crear Nueva Universidad
-          </button>
-          
-          <div class="stats">
-            <span class="stat-item">
-              <span class="stat-number">{{ stats.total }}</span>
-              <span class="stat-label">Total</span>
-            </span>
-            <span class="stat-item">
-              <span class="stat-number">{{ stats.pending }}</span>
-              <span class="stat-label">Pendientes</span>
-            </span>
-            <span class="stat-item">
-              <span class="stat-number">{{ stats.approved }}</span>
-              <span class="stat-label">Aprobadas</span>
-            </span>
-          </div>
-        </div>
+  <main class="admin-page">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">SUPERADMIN</p>
+        <h1>Universidades</h1>
+        <p>Crear universidades y eliminar registros existentes.</p>
       </div>
+      <button class="ghost-btn" type="button" @click="router.push('/admin')">Dashboard</button>
+    </header>
 
-      <!-- Tabs -->
-      <div class="tabs">
-        <button 
-          v-for="tab in tabs" 
-          :key="tab.id"
-          @click="activeTab = tab.id"
-          :class="{ active: activeTab === tab.id }"
-          class="tab-btn"
-        >
-          {{ tab.label }}
-          <span v-if="tab.count" class="tab-count">{{ tab.count }}</span>
-        </button>
-      </div>
-
-      <!-- Contenido -->
-      <div class="content">
-        <!-- Filtros -->
-        <div class="filters">
-          <input 
-            v-model="searchQuery"
-            type="text" 
-            placeholder="🔍 Buscar universidad..."
-            class="search-input"
-          />
-          
-          <select v-model="selectedCountry" class="filter-select">
-            <option value="">Todos los países</option>
-            <option v-for="country in countries" :key="country" :value="country">
-              {{ country }}
-            </option>
+    <section class="layout">
+      <form class="panel" @submit.prevent="submitUniversity">
+        <h2>{{ editingId ? 'Editar universidad' : 'Crear universidad' }}</h2>
+        <label>
+          Nombre
+          <input v-model.trim="form.nombre" type="text" required />
+        </label>
+        <label>
+          Ciudad
+          <input v-model.trim="form.ciudad" type="text" required />
+        </label>
+        <label>
+          Descripcion
+          <textarea v-model.trim="form.descripcion" rows="5" required />
+        </label>
+        <label>
+          Estado
+          <select v-model="form.estado">
+            <option value="pendiente">pendiente</option>
+            <option value="aprobado">aprobado</option>
           </select>
-          
-          <select v-model="selectedStatus" class="filter-select">
-            <option value="">Todos los estados</option>
-            <option value="draft">Borrador</option>
-            <option value="pending_review">Pendiente de revisión</option>
-            <option value="approved">Aprobadas</option>
-            <option value="rejected">Rechazadas</option>
-          </select>
-        </div>
-
-        <!-- Lista de universidades -->
-        <div class="universities-list">
-          <div v-if="filteredUniversities.length === 0" class="empty-state">
-            <div class="empty-icon">🏫</div>
-            <h3>No hay universidades</h3>
-            <p v-if="activeTab === 'all'">Crea la primera universidad</p>
-            <p v-else>No hay universidades en este estado</p>
-            <button @click="showCreateModal = true" class="btn-primary">
-              Crear Universidad
-            </button>
-          </div>
-
-          <UniversityCard
-            v-for="university in paginatedUniversities"
-            :key="university.id"
-            :university="university"
-            :user-role="userRole"
-            @edit="handleEdit"
-            @view="handleView"
-            @approve="handleApprove"
-            @reject="handleReject"
-            @delete="handleDelete"
-          />
-        </div>
-
-        <!-- Paginación -->
-        <div v-if="totalPages > 1" class="pagination">
-          <button 
-            @click="currentPage--" 
-            :disabled="currentPage === 1"
-            class="page-btn"
-          >
-            ← Anterior
+        </label>
+        <div class="form-actions">
+          <button class="primary-btn" type="submit" :disabled="adminStore.loading">
+            {{ editingId ? 'Guardar cambios' : 'Crear' }}
           </button>
-          
-          <span class="page-info">
-            Página {{ currentPage }} de {{ totalPages }}
-          </span>
-          
-          <button 
-            @click="currentPage++" 
-            :disabled="currentPage === totalPages"
-            class="page-btn"
-          >
-            Siguiente →
+          <button v-if="editingId" class="ghost-btn" type="button" @click="cancelEdit">
+            Cancelar
           </button>
         </div>
-      </div>
-    </div>
+      </form>
 
-    <!-- Modal para crear/editar -->
-    <UniversityFormModal
-      v-if="showCreateModal || editingUniversity"
-      :university="editingUniversity"
-      @close="closeModal"
-      @save="handleSaveUniversity"
-    />
-  </div>
+      <section class="panel">
+        <div class="section-header">
+          <h2>Listado</h2>
+          <button class="ghost-btn" type="button" @click="loadUniversities" :disabled="adminStore.loading">
+            Refrescar
+          </button>
+        </div>
+
+        <p v-if="message" class="feedback" :class="messageType">{{ message }}</p>
+        <p v-if="adminStore.error" class="feedback error">{{ adminStore.error }}</p>
+
+        <div v-if="adminStore.loading && adminStore.universities.length === 0" class="state">
+          Cargando universidades...
+        </div>
+        <div v-else-if="adminStore.universities.length === 0" class="state">
+          No hay universidades para mostrar.
+        </div>
+        <div v-else class="university-list">
+          <article v-for="university in adminStore.universities" :key="university.id" class="university-item">
+            <div>
+              <h3>{{ university.nombre }}</h3>
+              <p>{{ university.ciudad }} · {{ university.estado || 'pendiente' }}</p>
+              <small>{{ university.descripcion }}</small>
+            </div>
+            <div class="item-actions">
+              <button class="ghost-btn" type="button" :disabled="adminStore.loading" @click="startEdit(university)">
+                Editar
+              </button>
+              <button class="danger-btn" type="button" :disabled="adminStore.loading" @click="removeUniversity(university.id)">
+                Eliminar
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+    </section>
+  </main>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { useAuthStore } from '@/stores/auth';
-import { useUniversitiesStore } from '@/stores/universities';
-import UniversityCard from '../../components/UniversityCard.vue';
-import UniversityFormModal from './UniversityForm.vue';
+import { onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { useAdminStore, type AdminUniversity } from '@/stores/admin';
 
-// Stores
-const authStore = useAuthStore();
-const universitiesStore = useUniversitiesStore();
-
-// Estado
-const activeTab = ref('all');
-const searchQuery = ref('');
-const selectedCountry = ref('');
-const selectedStatus = ref('');
-const currentPage = ref(1);
-const itemsPerPage = ref(10);
-const showCreateModal = ref(false);
-const editingUniversity = ref(null);
-
-// Computed
-const userRole = computed(() => authStore.user?.role || 'user');
-
-const tabs = computed(() => [
-  { id: 'all', label: 'Todas', count: stats.value.total },
-  { id: 'pending', label: 'Pendientes', count: stats.value.pending },
-  { id: 'approved', label: 'Aprobadas', count: stats.value.approved },
-  { id: 'rejected', label: 'Rechazadas', count: stats.value.rejected },
-]);
-
-const countries = computed(() => {
-  return [...new Set(universitiesStore.universities.map(u => u.country))];
+const router = useRouter();
+const adminStore = useAdminStore();
+const message = ref('');
+const messageType = ref<'success' | 'error'>('success');
+const form = reactive({
+  nombre: '',
+  ciudad: '',
+  descripcion: '',
+  estado: 'pendiente',
 });
+const editingId = ref<string | null>(null);
 
-const stats = computed(() => {
-  const total = universitiesStore.universities.length;
-  const pending = universitiesStore.universities.filter(u => u.status === 'pending_review').length;
-  const approved = universitiesStore.universities.filter(u => u.status === 'approved').length;
-  const rejected = universitiesStore.universities.filter(u => u.status === 'rejected').length;
-  
-  return { total, pending, approved, rejected };
-});
-
-const filteredUniversities = computed(() => {
-  let result = universitiesStore.universities;
-
-  // Filtrar por tab
-  if (activeTab.value === 'pending') {
-    result = result.filter(u => u.status === 'pending_review');
-  } else if (activeTab.value === 'approved') {
-    result = result.filter(u => u.status === 'approved');
-  } else if (activeTab.value === 'rejected') {
-    result = result.filter(u => u.status === 'rejected');
-  }
-
-  // Filtrar por búsqueda
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase();
-    result = result.filter(u => 
-      u.name.toLowerCase().includes(query) ||
-      u.city.toLowerCase().includes(query) ||
-      u.country.toLowerCase().includes(query)
-    );
-  }
-
-  // Filtrar por país
-  if (selectedCountry.value) {
-    result = result.filter(u => u.country === selectedCountry.value);
-  }
-
-  // Filtrar por estado
-  if (selectedStatus.value) {
-    result = result.filter(u => u.status === selectedStatus.value);
-  }
-
-  return result;
-});
-
-const paginatedUniversities = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage.value;
-  const end = start + itemsPerPage.value;
-  return filteredUniversities.value.slice(start, end);
-});
-
-const totalPages = computed(() => {
-  return Math.ceil(filteredUniversities.value.length / itemsPerPage.value);
-});
-
-// Métodos
-const handleEdit = (university: any) => {
-  editingUniversity.value = university;
+const setMessage = (text: string, type: 'success' | 'error' = 'success') => {
+  message.value = text;
+  messageType.value = type;
 };
 
-const handleView = (university: any) => {
-  // Redirigir a vista de detalle pública
-  window.open(`/universities/${university.id}`, '_blank');
+const resetForm = () => {
+  form.nombre = '';
+  form.ciudad = '';
+  form.descripcion = '';
+  form.estado = 'pendiente';
+  editingId.value = null;
 };
 
-const handleApprove = async (universityId: string) => {
-  if (confirm('¿Aprobar esta universidad? Será visible públicamente.')) {
-    await universitiesStore.approveUniversity(universityId, userRole.value);
+const loadUniversities = async () => {
+  try {
+    await adminStore.fetchUniversities();
+  } catch {
+    setMessage(adminStore.error || 'No se pudieron cargar las universidades', 'error');
   }
 };
 
-const handleReject = async (universityId: string) => {
-  const reason = prompt('Ingresa el motivo del rechazo:');
-  if (reason) {
-    await universitiesStore.rejectUniversity(universityId, reason, userRole.value);
+const submitUniversity = async () => {
+  try {
+    if (editingId.value) {
+      await adminStore.updateUniversity(editingId.value, { ...form });
+      setMessage('Universidad actualizada correctamente');
+    } else {
+      await adminStore.createUniversity({ ...form });
+      setMessage('Universidad creada correctamente');
+    }
+    resetForm();
+  } catch {
+    setMessage(adminStore.error || 'No se pudo guardar la universidad', 'error');
   }
 };
 
-const handleDelete = async (universityId: string) => {
-  if (confirm('¿Eliminar permanentemente esta universidad?')) {
-    await universitiesStore.deleteUniversity(universityId, userRole.value);
+const startEdit = (university: AdminUniversity) => {
+  editingId.value = university.id;
+  form.nombre = university.nombre;
+  form.ciudad = university.ciudad;
+  form.descripcion = university.descripcion;
+  form.estado = university.estado || 'pendiente';
+};
+
+const cancelEdit = () => {
+  resetForm();
+};
+
+const removeUniversity = async (id: string) => {
+  const confirmed = window.confirm('Seguro que deseas eliminar esta universidad?');
+  if (!confirmed) return;
+
+  try {
+    await adminStore.deleteUniversity(id);
+    setMessage('Universidad eliminada correctamente');
+  } catch {
+    setMessage(adminStore.error || 'No se pudo eliminar la universidad', 'error');
   }
 };
 
-const handleSaveUniversity = async (universityData: any) => {
-  if (editingUniversity.value) {
-    await universitiesStore.updateUniversity(universityData);
-  } else {
-    await universitiesStore.createUniversity(universityData);
-  }
-  closeModal();
-};
-
-const closeModal = () => {
-  showCreateModal.value = false;
-  editingUniversity.value = null;
-};
-
-// Inicialización
-onMounted(async () => {
-  await universitiesStore.fetchUniversities();
-});
+onMounted(loadUniversities);
 </script>
 
 <style scoped>
-.universities-view {
-  min-height: 100vh;
-  background: #f8fafc;
-  padding: 2rem 1rem;
-}
-
-.container {
-  max-width: 1200px;
+.admin-page {
+  max-width: 1180px;
   margin: 0 auto;
+  padding: 32px 20px 56px;
 }
 
-.header {
-  margin-bottom: 2rem;
-}
-
-.header h1 {
-  font-size: 2rem;
-  color: #1e293b;
-  margin-bottom: 0.5rem;
-}
-
-.subtitle {
-  color: #64748b;
-  font-size: 1.1rem;
-  margin-bottom: 1.5rem;
-}
-
-.header-actions {
+.page-header,
+.section-header,
+.university-item {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
+  gap: 16px;
 }
 
-.btn-primary {
-  background: #2563eb;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: background 0.2s;
+.page-header {
+  margin-bottom: 18px;
 }
 
-.btn-primary:hover {
-  background: #1d4ed8;
-}
-
-.btn-primary span {
-  font-size: 1.25rem;
-}
-
-.stats {
-  display: flex;
-  gap: 2rem;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.stat-number {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #2563eb;
-}
-
-.stat-label {
-  font-size: 0.875rem;
-  color: #64748b;
-  margin-top: 0.25rem;
-}
-
-.tabs {
-  display: flex;
-  gap: 0.5rem;
-  border-bottom: 2px solid #e2e8f0;
-  margin-bottom: 1.5rem;
-  overflow-x: auto;
-}
-
-.tab-btn {
-  padding: 0.75rem 1.5rem;
-  background: none;
-  border: none;
-  border-bottom: 3px solid transparent;
-  font-weight: 500;
-  color: #64748b;
-  cursor: pointer;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: all 0.2s;
-}
-
-.tab-btn:hover {
-  color: #2563eb;
-}
-
-.tab-btn.active {
-  color: #2563eb;
-  border-bottom-color: #2563eb;
-  background: #eff6ff;
-}
-
-.tab-count {
-  background: #e2e8f0;
-  color: #475569;
-  padding: 0.125rem 0.5rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-}
-
-.filters {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.search-input {
-  flex: 1;
-  min-width: 200px;
-  padding: 0.75rem 1rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 1rem;
-}
-
-.filter-select {
-  padding: 0.75rem 1rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: white;
-  color: #475569;
-  min-width: 150px;
-}
-
-.universities-list {
+.layout {
   display: grid;
-  gap: 1rem;
+  grid-template-columns: 380px 1fr;
+  gap: 18px;
 }
 
-.empty-state {
-  text-align: center;
-  padding: 3rem 1rem;
-  background: white;
-  border-radius: 12px;
-  border: 2px dashed #e2e8f0;
+.eyebrow {
+  color: #2563eb;
+  font-weight: 800;
+  margin: 0 0 6px;
 }
 
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
 }
 
-.empty-state h3 {
-  color: #1e293b;
-  margin-bottom: 0.5rem;
+.panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  padding: 20px;
 }
 
-.empty-state p {
-  color: #64748b;
-  margin-bottom: 1.5rem;
+label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 14px;
 }
 
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 1rem;
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid #e2e8f0;
+input,
+select,
+textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  display: block;
+  font: inherit;
+  margin-top: 6px;
+  padding: 10px 12px;
+  width: 100%;
 }
 
-.page-btn {
-  padding: 0.5rem 1rem;
-  border: 1px solid #e2e8f0;
-  background: white;
+.primary-btn,
+.ghost-btn,
+.danger-btn {
+  border: 0;
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s;
+  font-weight: 700;
+  padding: 10px 14px;
 }
 
-.page-btn:hover:not(:disabled) {
-  background: #f1f5f9;
+.form-actions,
+.item-actions {
+  display: flex;
+  gap: 10px;
 }
 
-.page-btn:disabled {
-  opacity: 0.5;
+.primary-btn {
+  background: #2563eb;
+  color: #fff;
+}
+
+.ghost-btn {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.danger-btn {
+  align-self: flex-start;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+button:disabled {
   cursor: not-allowed;
+  opacity: 0.6;
 }
 
-.page-info {
+.feedback,
+.state {
+  border-radius: 6px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+}
+
+.feedback.success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.feedback.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.state {
+  color: #64748b;
+  text-align: center;
+}
+
+.university-list {
+  display: grid;
+  gap: 12px;
+}
+
+.university-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.university-item p,
+.university-item small {
   color: #64748b;
 }
 
-@media (max-width: 768px) {
-  .header-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .stats {
-    justify-content: space-around;
-  }
-  
-  .filters {
+@media (max-width: 900px) {
+  .page-header,
+  .section-header,
+  .university-item {
     flex-direction: column;
   }
-  
-  .search-input,
-  .filter-select {
-    width: 100%;
+
+  .layout {
+    grid-template-columns: 1fr;
   }
 }
 </style>

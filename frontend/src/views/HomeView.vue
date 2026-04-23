@@ -82,20 +82,20 @@
 
             <!-- Menú de usuario -->
             <div class="user-menu-dropdown">
-              <button @click="toggleUserMenu" class="action-btn user-btn">
+              <button @click="handleUserAction" class="action-btn user-btn">
                 <span class="action-icon">👤</span>
-                <span class="action-text">Mi Cuenta</span>
+                <span class="action-text">{{ userButtonText }}</span>
               </button>
               
               <!-- Dropdown de usuario -->
-              <div v-if="showUserMenu" class="dropdown-menu user-menu">
+              <div v-if="authStore.isAuthenticated && showUserMenu" class="dropdown-menu user-menu">
                 <div class="user-info">
                   <div class="user-avatar">
                     <span>👤</span>
                   </div>
                   <div class="user-details">
-                    <strong>Usuario</strong>
-                    <small>Invitado</small>
+                    <strong>{{ authStore.user?.name || 'Usuario' }}</strong>
+                    <small>{{ authStore.user?.email }}</small>
                   </div>
                 </div>
                 <div class="menu-items">
@@ -669,12 +669,14 @@ import { useUniversitiesStore } from '@/stores/universities';
 import { useFavoritesStore } from '@/stores/favorites';
 import { useComparisonStore } from '@/stores/comparison';
 import { useReviewsStore } from '@/stores/reviews';
+import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter();
 const universitiesStore = useUniversitiesStore();
 const favoritesStore = useFavoritesStore();
 const comparisonStore = useComparisonStore();
 const reviewsStore = useReviewsStore();
+const authStore = useAuthStore();
 
 // ============ REFS Y ESTADOS ============
 const searchQuery = ref("");
@@ -696,6 +698,18 @@ const itemsPerPage = ref(12);
 
 const favoritesCount = computed(() => {
   return favoritesStore.favoritesCount;
+});
+
+const userButtonText = computed(() => {
+  if (!authStore.isAuthenticated) {
+    return 'Iniciar sesión';
+  }
+
+  if (authStore.isSuperAdmin) {
+    return 'Panel Admin';
+  }
+
+  return authStore.user?.name || 'Mi Cuenta';
 });
 
 const isFavorite = (universityOrId: any): boolean => {
@@ -1393,7 +1407,7 @@ const goToReviews = () => {
 };
 
 const goToProfile = () => {
-  router.push('/profile');
+  router.push('/perfil');
 };
 
 const goToNotifications = () => {
@@ -1422,8 +1436,10 @@ const goToScholarships = () => {
 };
 
 const logout = () => {
+  authStore.logout();
   // Lógica de logout
   showUserMenu.value = false;
+  router.push('/login');
 };
 
 // ============ MÉTODOS DE FILTRADO Y BÚSQUEDA ============
@@ -1504,13 +1520,34 @@ const toggleComparisonDropdown = () => {
 };
 
 const toggleUserMenu = () => {
+  if (!authStore.isAuthenticated) {
+    router.push('/login');
+    return;
+  }
+
   showUserMenu.value = !showUserMenu.value;
   showComparisonDropdown.value = false;
+};
+
+const handleUserAction = () => {
+  if (!authStore.isAuthenticated) {
+    router.push('/login');
+    return;
+  }
+
+  if (authStore.isSuperAdmin) {
+    router.push('/admin');
+  } else {
+    router.push('/perfil');
+  }
+
+  showUserMenu.value = false;
 };
 
 // ============ MOUNTED Y WATCHERS ============
 
 onMounted(() => {
+  authStore.checkAuth();
   console.log('🏠 HomeView mounted con sistema de reseñas');
   
   if (!universitiesStore.universities || universitiesStore.universities.length === 0) {

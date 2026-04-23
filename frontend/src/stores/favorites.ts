@@ -1,222 +1,220 @@
-// src/stores/favorites.ts
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import type { Program } from '@/types';
+import { computed, ref } from 'vue';
+import api from '@/services/api';
+
+export type FavoriteKind = 'programa' | 'universidad';
 
 export interface FavoriteItem {
-  type: 'university' | 'program';
   id: string;
-  item: any;
+  type: 'program' | 'university';
+  tipo: FavoriteKind;
+  referenciaId: string;
+  item: {
+    id: string;
+    name: string;
+    description?: string;
+  };
   addedAt: Date;
 }
+
+type ApiFavorite = {
+  id: string;
+  tipo: FavoriteKind;
+  referenciaId: string;
+  creadoEn: string;
+  referencia: {
+    id: string;
+    nombre: string | null;
+    descripcion: string | null;
+  };
+};
+
+const toUiType = (tipo: FavoriteKind): FavoriteItem['type'] =>
+  tipo === 'programa' ? 'program' : 'university';
+
+const toApiType = (type: string): FavoriteKind =>
+  type === 'program' || type === 'programa' ? 'programa' : 'universidad';
+
+const mapFavorite = (favorite: ApiFavorite): FavoriteItem => ({
+  id: favorite.id,
+  type: toUiType(favorite.tipo),
+  tipo: favorite.tipo,
+  referenciaId: favorite.referenciaId,
+  item: {
+    id: favorite.referencia.id,
+    name: favorite.referencia.nombre || 'Sin nombre',
+    description: favorite.referencia.descripcion || '',
+  },
+  addedAt: new Date(favorite.creadoEn),
+});
 
 export const useFavoritesStore = defineStore('favorites', () => {
   const favorites = ref<FavoriteItem[]>([]);
   const loading = ref(false);
+  const error = ref<string | null>(null);
 
-  // ============ CARGAR/GRABAR ============
-  const loadFavorites = () => {
+  const fetchFavorites = async () => {
     try {
-      const saved = localStorage.getItem('estudiarapp_favorites_v2');
-      if (saved) {
-        const data = JSON.parse(saved);
-        favorites.value = data.map((item: any) => ({
-          ...item,
-          addedAt: new Date(item.addedAt),
-          item: item.item || null
-        }));
-      }
-    } catch (error) {
-      console.error('Error cargando favoritos:', error);
+      loading.value = true;
+      error.value = null;
+
+      const response = await api.get<{ favoritos: ApiFavorite[] }>('/favoritos');
+      favorites.value = response.data.favoritos.map(mapFavorite);
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Error cargando favoritos';
       favorites.value = [];
+    } finally {
+      loading.value = false;
     }
   };
 
-  const saveFavorites = () => {
-    try {
-      localStorage.setItem('estudiarapp_favorites_v2', 
-        JSON.stringify(favorites.value.map(item => ({
-          ...item,
-          addedAt: item.addedAt.toISOString()
-        })))
-      );
-    } catch (error) {
-      console.error('Error guardando favoritos:', error);
+  const addFavoriteByReference = async (tipo: FavoriteKind, referenciaId: string) => {
+    const response = await api.post<{ favorito: ApiFavorite }>('/favoritos', {
+      tipo,
+      referencia_id: referenciaId,
+    });
+
+    const favorite = mapFavorite(response.data.favorito);
+    const index = favorites.value.findIndex((item) => item.id === favorite.id);
+
+    if (index >= 0) {
+      favorites.value[index] = favorite;
+    } else {
+      favorites.value.unshift(favorite);
     }
+
+    return favorite;
   };
 
-  // ============ UNIVERSIDADES ============
-  const addUniversityToFavorites = (university: any) => {
+  const removeFavoriteById = async (favoriteId: string) => {
+    await api.delete(`/favoritos/${favoriteId}`);
+    favorites.value = favorites.value.filter((favorite) => favorite.id !== favoriteId);
+  };
+
+  const findFavorite = (tipo: FavoriteKind, referenciaId: string) => {
+    return favorites.value.find(
+      (favorite) => favorite.tipo === tipo && favorite.referenciaId === referenciaId
+    );
+  };
+
+  const removeByReference = async (tipo: FavoriteKind, referenciaId: string) => {
+    const favorite = findFavorite(tipo, referenciaId);
+    if (!favorite) {
+      return false;
+    }
+
+    await removeFavoriteById(favorite.id);
+    return true;
+  };
+
+  const isUniversityFavorite = (universityId: string): boolean =>
+    Boolean(findFavorite('universidad', universityId));
+
+  const isProgramFavorite = (programId: string, _universityId?: string): boolean =>
+    Boolean(findFavorite('programa', programId));
+
+  const addUniversityToFavorites = async (university: any) => {
     const universityId = university.id || university._id;
     if (!universityId) {
-      throw new Error('Universidad no tiene ID válido');
+      throw new Error('Universidad no tiene ID valido');
     }
 
-    // Verificar si ya existe
-    if (isUniversityFavorite(universityId)) {
-      return false;
-    }
-
-    favorites.value.push({
-      type: 'university',
-      id: universityId,
-      item: {
-        ...university,
-        id: universityId
-      },
-      addedAt: new Date()
-    });
-
-    saveFavorites();
+    await addFavoriteByReference('universidad', universityId);
     return true;
   };
 
-  const removeUniversityFromFavorites = (universityId: string) => {
-    const initialLength = favorites.value.length;
-    favorites.value = favorites.value.filter(fav => 
-      !(fav.type === 'university' && fav.id === universityId)
-    );
-    
-    if (favorites.value.length < initialLength) {
-      saveFavorites();
-    }
+  const removeUniversityFromFavorites = async (universityId: string) => {
+    await removeByReference('universidad', universityId);
   };
 
-  const isUniversityFavorite = (universityId: string): boolean => {
-    return favorites.value.some(fav => 
-      fav.type === 'university' && fav.id === universityId
-    );
-  };
-
-  // ============ PROGRAMAS ============
-  const addProgramToFavorites = (program: any, university: any) => {
-    const programId = program._id || program.id;
+  const toggleUniversityFavorite = async (university: any) => {
     const universityId = university.id || university._id;
-    
-    if (!programId || !universityId) {
-      throw new Error('Programa o universidad sin ID válido');
-    }
-
-    // Verificar si ya existe
-    if (isProgramFavorite(programId, universityId)) {
+    if (!universityId) {
       return false;
     }
 
-    // Agregar programa
-    favorites.value.push({
-      type: 'program',
-      id: `${universityId}_${programId}`,
-      item: {
-        program: { ...program, id: programId },
-        university: { ...university, id: universityId },
-        combinedId: `${universityId}_${programId}`
-      },
-      addedAt: new Date()
-    });
-
-    // Asegurar que la universidad también sea favorita
-    if (!isUniversityFavorite(universityId)) {
-      addUniversityToFavorites(university);
+    if (isUniversityFavorite(universityId)) {
+      await removeUniversityFromFavorites(universityId);
+      return false;
     }
 
-    saveFavorites();
+    await addUniversityToFavorites(university);
     return true;
   };
 
-  const removeProgramFromFavorites = (programId: string, universityId: string) => {
-    const initialLength = favorites.value.length;
-    favorites.value = favorites.value.filter(fav => 
-      !(fav.type === 'program' && fav.id === `${universityId}_${programId}`)
-    );
-    
-    if (favorites.value.length < initialLength) {
-      saveFavorites();
+  const addProgramToFavorites = async (program: any, _university?: any) => {
+    const programId = program.id || program._id;
+    if (!programId) {
+      throw new Error('Programa no tiene ID valido');
     }
+
+    await addFavoriteByReference('programa', programId);
+    return true;
   };
 
-  const isProgramFavorite = (programId: string, universityId: string): boolean => {
-    return favorites.value.some(fav => 
-      fav.type === 'program' && fav.id === `${universityId}_${programId}`
-    );
+  const removeProgramFromFavorites = async (programId: string, _universityId?: string) => {
+    await removeByReference('programa', programId);
   };
 
-  // ============ MÉTODOS GENERALES ============
-  const toggleUniversityFavorite = (university: any) => {
-    const universityId = university.id || university._id;
-    if (!universityId) return false;
-
-    if (isUniversityFavorite(universityId)) {
-      removeUniversityFromFavorites(universityId);
+  const toggleProgramFavorite = async (program: any, _university?: any) => {
+    const programId = program.id || program._id;
+    if (!programId) {
       return false;
-    } else {
-      return addUniversityToFavorites(university);
     }
-  };
 
-  const toggleProgramFavorite = (program: any, university: any) => {
-    const programId = program._id || program.id;
-    const universityId = university.id || university._id;
-    
-    if (!programId || !universityId) return false;
-
-    if (isProgramFavorite(programId, universityId)) {
-      removeProgramFromFavorites(programId, universityId);
+    if (isProgramFavorite(programId)) {
+      await removeProgramFromFavorites(programId);
       return false;
-    } else {
-      return addProgramToFavorites(program, university);
     }
+
+    await addProgramToFavorites(program);
+    return true;
   };
 
-  // ============ GETTERS ============
-  const universityFavorites = computed(() => 
-    favorites.value.filter(fav => fav.type === 'university').map(fav => fav.item)
+  const addFavorite = async (item: any) => addUniversityToFavorites(item);
+  const removeFavorite = async (id: string) => removeUniversityFromFavorites(id);
+
+  const universityFavorites = computed(() =>
+    favorites.value.filter((favorite) => favorite.type === 'university')
   );
 
-  const programFavorites = computed(() => 
-    favorites.value.filter(fav => fav.type === 'program').map(fav => fav.item)
+  const programFavorites = computed(() =>
+    favorites.value.filter((favorite) => favorite.type === 'program')
   );
 
   const favoritesCount = computed(() => favorites.value.length);
   const universityFavoritesCount = computed(() => universityFavorites.value.length);
   const programFavoritesCount = computed(() => programFavorites.value.length);
 
-  // ============ BÚSQUEDA ============
-  const getFavoriteProgramsByUniversity = (universityId: string) => {
-    return programFavorites.value
-      .filter(item => item.university.id === universityId)
-      .map(item => item.program);
-  };
+  const loadFavorites = fetchFavorites;
+  const saveFavorites = () => undefined;
 
-  // Inicializar
-  loadFavorites();
+  const getFavoriteProgramsByUniversity = () => [];
 
   return {
-    // Estado
     favorites,
     loading,
-
-    // Getters
+    error,
     universityFavorites,
     programFavorites,
     favoritesCount,
     universityFavoritesCount,
     programFavoritesCount,
-
-    // Métodos de universidad
+    fetchFavorites,
+    loadFavorites,
+    saveFavorites,
+    addFavoriteByReference,
+    removeFavoriteById,
+    addFavorite,
+    removeFavorite,
     addUniversityToFavorites,
     removeUniversityFromFavorites,
     isUniversityFavorite,
     toggleUniversityFavorite,
-
-    // Métodos de programa
     addProgramToFavorites,
     removeProgramFromFavorites,
     isProgramFavorite,
     toggleProgramFavorite,
-
-    // Métodos generales
     getFavoriteProgramsByUniversity,
-    loadFavorites,
-    saveFavorites
   };
 });

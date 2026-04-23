@@ -1,293 +1,182 @@
 <template>
-  <div class="dashboard-view">
-    <div class="container">
-      <h1>📊 Dashboard de Administración</h1>
-      
-      <!-- Estadísticas -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon">🏛️</div>
-          <div class="stat-content">
-            <h3>{{ universitiesCount }}</h3>
-            <p>Universidades</p>
-          </div>
-        </div>
-        
-        <div class="stat-card">
-          <div class="stat-icon">⭐</div>
-          <div class="stat-content">
-            <h3>{{ pendingReviewsCount }}</h3>
-            <p>Reseñas pendientes</p>
-          </div>
-        </div>
-        
-        <div class="stat-card">
-          <div class="stat-icon">👥</div>
-          <div class="stat-content">
-            <h3>0</h3>
-            <p>Usuarios activos</p>
-          </div>
-        </div>
-        
-        <div class="stat-card">
-          <div class="stat-icon">📈</div>
-          <div class="stat-content">
-            <h3>100%</h3>
-            <p>Sistema operativo</p>
-          </div>
-        </div>
+  <main class="admin-page">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">SUPERADMIN</p>
+        <h1>Panel de administracion</h1>
+        <p>Gestion operativa de usuarios, programas y universidades.</p>
       </div>
+      <div class="header-actions">
+        <button class="ghost-btn" type="button" @click="router.push('/perfil')">Mi perfil</button>
+        <button class="ghost-btn" type="button" @click="router.push('/')">Ir al inicio</button>
+      </div>
+    </header>
 
-      <!-- Acciones rápidas -->
-      <div class="quick-actions">
-        <h2>Acciones rápidas</h2>
-        <div class="actions-grid">
-          <button @click="$router.push('/admin/universities')" class="action-btn">
-            <span class="action-icon">🏛️</span>
-            <span class="action-text">Gestionar Universidades</span>
-          </button>
-          
-          <button @click="$router.push('/admin/reviews')" class="action-btn">
-            <span class="action-icon">⭐</span>
-            <span class="action-text">Moderar Reseñas</span>
-          </button>
-          
-          <button @click="$router.push('/admin/users')" class="action-btn">
-            <span class="action-icon">👥</span>
-            <span class="action-text">Gestionar Usuarios</span>
-          </button>
-          
-          <button @click="$router.push('/')" class="action-btn">
-            <span class="action-icon">🏠</span>
-            <span class="action-text">Ir al Inicio</span>
-          </button>
-        </div>
-      </div>
+    <section class="stats-grid">
+      <article class="stat-card">
+        <span>Usuarios</span>
+        <strong>{{ adminStore.users.length }}</strong>
+      </article>
+      <article class="stat-card">
+        <span>Programas</span>
+        <strong>{{ adminStore.programs.length }}</strong>
+      </article>
+      <article class="stat-card">
+        <span>Pendientes</span>
+        <strong>{{ adminStore.pendingPrograms.length }}</strong>
+      </article>
+      <article class="stat-card">
+        <span>Universidades</span>
+        <strong>{{ adminStore.universities.length }}</strong>
+      </article>
+    </section>
 
-      <!-- Últimas actividades -->
-      <div class="recent-activities">
-        <h2>Actividad reciente</h2>
-        <div class="activities-list">
-          <div class="activity-item">
-            <div class="activity-icon">➕</div>
-            <div class="activity-content">
-              <p><strong>Nueva universidad añadida</strong></p>
-              <p class="activity-time">Hace 2 horas</p>
-            </div>
-          </div>
-          
-          <div class="activity-item">
-            <div class="activity-icon">⭐</div>
-            <div class="activity-content">
-              <p><strong>Nueva reseña publicada</strong></p>
-              <p class="activity-time">Hace 4 horas</p>
-            </div>
-          </div>
-          
-          <div class="activity-item">
-            <div class="activity-icon">👤</div>
-            <div class="activity-content">
-              <p><strong>Nuevo usuario registrado</strong></p>
-              <p class="activity-time">Hace 1 día</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+    <section class="actions-grid">
+      <button class="action-card" type="button" @click="router.push('/admin/usuarios')">
+        <strong>Gestionar usuarios</strong>
+        <span>Crear ADMIN, crear ASESOR y cambiar roles.</span>
+      </button>
+      <button class="action-card" type="button" @click="router.push('/admin/programas')">
+        <strong>Aprobar programas</strong>
+        <span>Revisar programas y aprobar pendientes.</span>
+      </button>
+      <button class="action-card" type="button" @click="router.push('/admin/universidades')">
+        <strong>Gestionar universidades</strong>
+        <span>Crear y eliminar universidades.</span>
+      </button>
+    </section>
+
+    <p v-if="adminStore.error" class="feedback error">{{ adminStore.error }}</p>
+  </main>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useUniversitiesStore } from '@/stores/universities';
-import { useReviewsStore } from '@/stores/reviews';
+import { onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { useAdminStore } from '@/stores/admin';
 
-// Usar los stores correctos
-const universitiesStore = useUniversitiesStore();
-const reviewsStore = useReviewsStore();
+const router = useRouter();
+const adminStore = useAdminStore();
 
-// Computed properties
-const universitiesCount = computed(() => {
-  return universitiesStore.universities.length;
-});
-
-const pendingReviewsCount = computed(() => {
-  // Asumiendo que tienes una forma de obtener reseñas pendientes
-  const allReviews = reviewsStore.reviews || [];
-  return allReviews.filter((review: any) => review.status === 'pending').length;
+onMounted(async () => {
+  await Promise.allSettled([
+    adminStore.fetchUsers(),
+    adminStore.fetchPrograms(),
+    adminStore.fetchUniversities(),
+  ]);
 });
 </script>
 
 <style scoped>
-.dashboard-view {
-  min-height: 100vh;
-  background-color: #f8f9fa;
-  padding: 2rem 0;
-}
-
-.container {
-  max-width: 1200px;
+.admin-page {
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 32px 20px 56px;
 }
 
-h1 {
-  color: #333;
-  margin-bottom: 2rem;
-  font-size: 2.5rem;
-}
-
-/* Estadísticas */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 3rem;
-}
-
-.stat-card {
-  background: white;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+.page-header,
+.header-actions {
   display: flex;
-  align-items: center;
-  gap: 1rem;
-  transition: transform 0.3s;
+  gap: 16px;
 }
 
-.stat-card:hover {
-  transform: translateY(-5px);
+.page-header {
+  justify-content: space-between;
+  margin-bottom: 24px;
 }
 
-.stat-icon {
-  font-size: 2rem;
+.header-actions {
+  align-items: flex-start;
 }
 
-.stat-content h3 {
-  margin: 0;
-  font-size: 2rem;
-  color: #1f2937;
+.eyebrow {
+  color: #2563eb;
+  font-weight: 800;
+  margin: 0 0 6px;
 }
 
-.stat-content p {
-  margin: 0.25rem 0 0 0;
-  color: #6b7280;
+h1,
+p {
+  margin-top: 0;
 }
 
-/* Acciones rápidas */
-.quick-actions {
-  background: white;
-  border-radius: 1rem;
-  padding: 2rem;
-  margin-bottom: 3rem;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+.stats-grid,
+.actions-grid {
+  display: grid;
+  gap: 16px;
 }
 
-.quick-actions h2 {
-  margin: 0 0 1.5rem 0;
-  color: #1f2937;
+.stats-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 18px;
 }
 
 .actions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.action-btn {
-  padding: 1.5rem;
-  background: #f8fafc;
-  border: 2px solid #e5e7eb;
-  border-radius: 0.75rem;
+.stat-card,
+.action-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  padding: 20px;
+}
+
+.stat-card span,
+.action-card span {
+  color: #64748b;
+}
+
+.stat-card strong {
+  display: block;
+  font-size: 2rem;
+}
+
+.action-card {
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  transition: all 0.3s;
   text-align: left;
 }
 
-.action-btn:hover {
-  background: #3b82f6;
-  border-color: #3b82f6;
-  color: white;
+.action-card strong {
+  display: block;
+  margin-bottom: 8px;
 }
 
-.action-icon {
-  font-size: 1.5rem;
+.ghost-btn {
+  align-self: flex-start;
+  background: #e2e8f0;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 10px 14px;
 }
 
-.action-text {
-  font-weight: 500;
-  font-size: 1rem;
+.feedback {
+  border-radius: 6px;
+  margin-top: 16px;
+  padding: 12px 14px;
 }
 
-/* Actividades recientes */
-.recent-activities {
-  background: white;
-  border-radius: 1rem;
-  padding: 2rem;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+.feedback.error {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
-.recent-activities h2 {
-  margin: 0 0 1.5rem 0;
-  color: #1f2937;
-}
-
-.activities-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.activity-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: 0.75rem;
-  background: #f9fafb;
-  transition: background 0.3s;
-}
-
-.activity-item:hover {
-  background: #f3f4f6;
-}
-
-.activity-icon {
-  font-size: 1.5rem;
-  background: #e0e7ff;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.activity-content p {
-  margin: 0;
-}
-
-.activity-content .activity-time {
-  font-size: 0.875rem;
-  color: #6b7280;
-  margin-top: 0.25rem;
-}
-
-@media (max-width: 768px) {
-  .stats-grid {
-    grid-template-columns: 1fr;
+@media (max-width: 860px) {
+  .page-header {
+    flex-direction: column;
   }
-  
+
+  .header-actions {
+    flex-direction: column;
+  }
+
+  .stats-grid,
   .actions-grid {
     grid-template-columns: 1fr;
-  }
-  
-  h1 {
-    font-size: 2rem;
   }
 }
 </style>

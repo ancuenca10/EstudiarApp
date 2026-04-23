@@ -9,6 +9,9 @@ export interface University {
   website?: string
   description?: string
   logo?: string
+  accreditation?: string
+  cost?: number
+  tuition?: number
   type?: 'public' | 'private'
   rating?: number
   programs?: Program[]

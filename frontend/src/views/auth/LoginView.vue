@@ -13,7 +13,7 @@
               placeholder="usuario@ejemplo.com"
               required
             />
-            <small class="hint">Prueba: admin@estudiarapp.com</small>
+            <small class="hint">Usa las credenciales registradas en el backend</small>
           </div>
           
           <div class="form-group">
@@ -25,7 +25,7 @@
               placeholder="••••••••"
               required
             />
-            <small class="hint">Cualquier contraseña funciona en demo</small>
+            <small class="hint">La contrasena debe coincidir con tu cuenta</small>
           </div>
           
           <div class="form-options">
@@ -50,28 +50,6 @@
           
           <div class="divider">
             <span>o</span>
-          </div>
-          
-          <!-- Credenciales de demo -->
-          <div class="demo-credentials">
-            <h4>👨‍💻 Credenciales de Prueba:</h4>
-            <div class="demo-grid">
-              <div class="demo-item">
-                <strong>Admin:</strong>
-                <p>admin@estudiarapp.com</p>
-                <p>Cualquier contraseña</p>
-              </div>
-              <div class="demo-item">
-                <strong>Editor:</strong>
-                <p>editor@estudiarapp.com</p>
-                <p>Cualquier contraseña</p>
-              </div>
-              <div class="demo-item">
-                <strong>Usuario:</strong>
-                <p>user@estudiarapp.com</p>
-                <p>Cualquier contraseña</p>
-              </div>
-            </div>
           </div>
           
           <div class="register-link">

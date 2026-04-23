@@ -1,32 +1,33 @@
+import axios, { AxiosError } from 'axios';
 
-import axios from "axios";
-import type { University } from "@/types";
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-
-const api = axios.create({
+export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
 });
 
-export const universityService = {
-  async getAllUniversities(): Promise<University[]> {
-    const response = await api.get("/universities");
-    return response.data;
-  },
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
 
-  async searchUniversities(query: string): Promise<University[]> {
-    const response = await api.get(`/universities/search?q=${query}`);
-    return response.data;
-  },
-
-  async getUniversitiesByCity(city: string): Promise<University[]> {
-    const response = await api.get(`/universities/city/${city}`);
-    return response.data;
-  },
-
-  async getUniversityById(id: string): Promise<University> {
-    const response = await api.get(`/universities/${id}`);
-    return response.data;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
-};
+
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError<{ error?: string; message?: string }>) => {
+    const message =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      error.message ||
+      'Error de conexion con el servidor';
+
+    return Promise.reject(new Error(message));
+  }
+);
+
+export default api;

@@ -1,5 +1,16 @@
 <template>
   <div class="program-card">
+    <div class="program-card-actions">
+      <button
+        type="button"
+        class="favorite-btn"
+        :class="{ active: isFavorite }"
+        :disabled="isTogglingFavorite"
+        @click.stop="toggleFavorite"
+      >
+        {{ isFavorite ? '❤️' : '♡' }}
+      </button>
+    </div>
     <!-- ... código existente ... -->
     
     <!-- Sección de reseñas -->
@@ -28,7 +39,7 @@
   <ReviewModal 
     v-if="showReviewModal"
     :isVisible="showReviewModal"
-    :entityId="program.id"
+    :entityId="program.id || program._id"
     entityType="program"
     :entityName="program.name"
     @close="closeReviewsModal"
@@ -38,6 +49,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useReviewsStore } from '@/stores/reviews';
+import { useFavoritesStore } from '@/stores/favorites';
 import RatingStars from './RatingStars.vue';
 import ReviewModal from './ReviewModal.vue';
 import type { Program } from '@/types';
@@ -52,11 +64,17 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const reviewsStore = useReviewsStore();
+const favoritesStore = useFavoritesStore();
 const showReviewModal = ref(false);
+const isTogglingFavorite = ref(false);
 
 const reviewStats = computed(() => {
-  return reviewsStore.getReviewStats(props.program.id, 'program');
+  return reviewsStore.getReviewStats(props.program.id || props.program._id, 'program');
 });
+
+const isFavorite = computed(() =>
+  favoritesStore.isProgramFavorite(props.program.id || props.program._id)
+);
 
 const openReviewsModal = () => {
   showReviewModal.value = true;
@@ -65,6 +83,17 @@ const openReviewsModal = () => {
 const closeReviewsModal = () => {
   showReviewModal.value = false;
 };
+
+const toggleFavorite = async () => {
+  try {
+    isTogglingFavorite.value = true;
+    await favoritesStore.toggleProgramFavorite(props.program);
+  } catch (error) {
+    alert(error instanceof Error ? error.message : 'No se pudo actualizar favorito');
+  } finally {
+    isTogglingFavorite.value = false;
+  }
+};
 </script>
 
 <style scoped>
@@ -72,6 +101,31 @@ const closeReviewsModal = () => {
 .program-reviews-section {
   padding: 0.5rem 0;
   margin-top: 0.5rem;
+}
+
+.program-card-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.favorite-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #fecdd3;
+  border-radius: 50%;
+  background: #fff1f2;
+  color: #be123c;
+  cursor: pointer;
+  font-size: 1.15rem;
+}
+
+.favorite-btn.active {
+  background: #ffe4e6;
+}
+
+.favorite-btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 .reviews-summary {

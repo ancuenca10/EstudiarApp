@@ -2,6 +2,9 @@
   <div class="profile-page">
     <div class="container">
       <h1>👤 Mi Perfil</h1>
+      <button class="btn-home" type="button" @click="goHome">
+        Volver al inicio
+      </button>
       <div class="profile-card">
         <div class="profile-header">
           <div class="avatar">
@@ -95,6 +98,10 @@ const changePassword = () => {
   router.push('/auth/forgot-password');
 };
 
+const goHome = () => {
+  router.push('/');
+};
+
 const logout = () => {
   authStore.logout();
   router.push('/');
@@ -115,8 +122,26 @@ const logout = () => {
 
 .container h1 {
   color: #333;
-  margin-bottom: 30px;
+  margin-bottom: 12px;
   text-align: center;
+}
+
+.btn-home {
+  display: block;
+  margin: 0 auto 30px;
+  padding: 10px 18px;
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.btn-home:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
 }
 
 .profile-card {

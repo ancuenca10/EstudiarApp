@@ -17,8 +17,10 @@
         @click="toggleFavorite"
         class="favorite-btn"
         :class="{ active: isFavorite }"
+        :disabled="isTogglingFavorite"
         aria-label="Agregar a favoritos"
       >
+        <span class="favorite-icon">{{ isFavorite ? '❤️' : '♡' }}</span>
         {{ isFavorite ? '★' : '☆' }}
       </button>
     </div>
@@ -78,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFavoritesStore } from '@/stores/favorites';
 import { useComparisonStore } from '@/stores/comparison';
@@ -110,14 +112,15 @@ const props = withDefaults(defineProps<Props>(), {
 const router = useRouter();
 const favoritesStore = useFavoritesStore();
 const comparisonStore = useComparisonStore();
+const isTogglingFavorite = ref(false);
 
 // Computed properties
 const isFavorite = computed(() => {
-  return favoritesStore.favorites?.some(fav => fav.id === props.university.id) || false;
+  return favoritesStore.isUniversityFavorite(props.university.id);
 });
 
 const isInComparison = computed(() => {
-  return comparisonStore.comparisonItems?.some(item => item.id === props.university.id) || false;
+  return comparisonStore.comparisonItems?.some((item: any) => item.id === props.university.id) || false;
 });
 
 // Métodos
@@ -135,13 +138,16 @@ const truncateDescription = (description: string, maxLength: number = 120): stri
   return description.substring(0, maxLength) + '...';
 };
 
-const toggleFavorite = (event: Event) => {
+const toggleFavorite = async (event: Event) => {
   event.stopPropagation();
-  
-  if (isFavorite.value) {
-    favoritesStore.removeFavorite(props.university.id);
-  } else {
-    favoritesStore.addFavorite(props.university);
+
+  try {
+    isTogglingFavorite.value = true;
+    await favoritesStore.toggleUniversityFavorite(props.university);
+  } catch (error) {
+    alert(error instanceof Error ? error.message : 'No se pudo actualizar favorito');
+  } finally {
+    isTogglingFavorite.value = false;
   }
 };
 
@@ -155,7 +161,7 @@ const toggleComparison = (event: Event) => {
       alert('Máximo 3 programas en comparación');
       return;
     }
-    comparisonStore.addToComparison(props.university);
+    comparisonStore.addToComparison(props.university as any);
   }
 };
 
@@ -264,6 +270,11 @@ const viewDetails = (event: Event) => {
   transition: all 0.3s ease;
   margin-left: 0.5rem;
   flex-shrink: 0;
+  font-size: 0;
+}
+
+.favorite-icon {
+  font-size: 1.2rem;
 }
 
 .favorite-btn:hover {
@@ -274,6 +285,11 @@ const viewDetails = (event: Event) => {
 .favorite-btn.active {
   background: #ffd700;
   color: white;
+}
+
+.favorite-btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 /* Contenido */
