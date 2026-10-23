@@ -94,6 +94,25 @@ export const createAsesor = async (req: Request, res: Response) => {
   }
 };
 
+export const createUser = async (req: Request, res: Response) => {
+  try {
+    const role = req.body.role as Role | undefined;
+
+    if (!role || !FIXED_ROLES.includes(role) || role === ROLES.SUPERADMIN) {
+      return res.status(400).json({ error: 'Rol invalido' });
+    }
+
+    if (!SUPERADMIN_MANAGED_ROLES.includes(role) && role !== ROLES.USER && role !== ROLES.UNIVERSITY) {
+      return res.status(400).json({ error: 'Rol no permitido' });
+    }
+
+    return await createUserWithRole(req, res, role);
+  } catch (error) {
+    console.error('Error creating user:', error);
+    return res.status(500).json({ error: 'Error al crear usuario' });
+  }
+};
+
 export const changeUserRole = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -251,6 +270,25 @@ export const listUsers = async (_req: Request, res: Response) => {
   } catch (error) {
     console.error('Error listing users:', error);
     return res.status(500).json({ error: 'Error al listar usuarios' });
+  }
+};
+
+export const listUniversityUsers = async (_req: Request, res: Response) => {
+  try {
+    const result = await query(
+      `SELECT id, name, email, role, created_at, updated_at
+       FROM users
+       WHERE role = $1
+       ORDER BY name ASC, email ASC`,
+      [ROLES.UNIVERSITY]
+    );
+
+    return res.json({
+      users: result.rows.map((user) => publicUserFields(user as UserRow)),
+    });
+  } catch (error) {
+    console.error('Error listing university users:', error);
+    return res.status(500).json({ error: 'Error al listar usuarios UNIVERSITY' });
   }
 };
 

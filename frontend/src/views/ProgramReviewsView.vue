@@ -80,7 +80,7 @@
               v-for="review in paginatedReviews"
               :key="review.id"
               :review="review"
-              :user-id="currentUserId"
+              :user-id="currentUserId || undefined"
               @vote-helpful="handleVoteHelpful"
               @vote-not-helpful="handleVoteNotHelpful"
               @report="handleReportReview"
@@ -154,10 +154,11 @@
     <!-- Modal para escribir reseña -->
     <ReviewFormModal
       v-if="showReviewForm"
-      :program-id="programId"
-      :program-name="program?.name"
+      :entity-id="programId"
+      entity-type="program"
+      :entity-name="program?.name"
       @submit="handleSubmitReview"
-      @close="showReviewForm = false"
+      @cancel="showReviewForm = false"
     />
   </div>
 </template>
@@ -205,7 +206,7 @@ const programReviews = computed(() => {
 });
 
 const reviewsStats = computed(() => {
-  return reviewsStore.getReviewStats(programId.value);
+  return reviewsStore.getReviewStats(programId.value, 'program');
 });
 
 // Computed: Ordenar y filtrar reseñas
@@ -291,12 +292,19 @@ const visiblePages = computed(() => {
 });
 
 // Métodos
-const handleSubmitReview = async (reviewData: any) => {
+const handleSubmitReview = async (reviewData: {
+  entityId: string;
+  entityType: 'program' | 'university';
+  rating: number;
+  title: string;
+  content: string;
+  pros: string[];
+  cons: string[];
+  wouldRecommend: boolean;
+  isVerifiedStudent: boolean;
+}) => {
   try {
-    await reviewsStore.addReview({
-      ...reviewData,
-      programId: programId.value,
-    });
+    await reviewsStore.addReview(reviewData);
     
     showReviewForm.value = false;
     // Podrías mostrar un toast de éxito aquí
@@ -331,7 +339,8 @@ const handleReportReview = (reviewId: string) => {
   }
 };
 
-const getProgramType = (type: string) => {
+const getProgramType = (type?: string) => {
+  if (!type) return 'No especificado';
   const types: Record<string, string> = {
     'undergraduate': 'Pregrado',
     'graduate': 'Posgrado',
@@ -341,7 +350,8 @@ const getProgramType = (type: string) => {
   return types[type] || type;
 };
 
-const formatCurrency = (amount: number, currency: string) => {
+const formatCurrency = (amount?: number, currency = 'COP') => {
+  if (!amount) return 'No especificado';
   return new Intl.NumberFormat('es-ES', {
     style: 'currency',
     currency: currency,

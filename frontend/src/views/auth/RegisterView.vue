@@ -54,9 +54,8 @@
             <label for="role">Tipo de Cuenta</label>
             <select id="role" v-model="role" required>
               <option value="" disabled>Selecciona un tipo</option>
-              <option value="user">Estudiante</option>
-              <option value="editor">Editor / Universidad</option>
-              <option value="admin">Administrador</option>
+              <option value="student">Estudiante</option>
+              <option value="user">Usuario general</option>
             </select>
           </div>
           
@@ -72,12 +71,13 @@
             </label>
           </div>
           
-          <button type="submit" class="btn-register" :disabled="!acceptTerms">
-            Crear Cuenta
+          <button type="submit" class="btn-register" :disabled="!acceptTerms || authStore.isLoading">
+            {{ authStore.isLoading ? 'Creando cuenta...' : 'Crear Cuenta' }}
           </button>
+          <p v-if="authStore.error" class="form-error">{{ authStore.error }}</p>
           
           <div class="login-link">
-            <p>¿Ya tienes una cuenta? <router-link to="/auth/login">Inicia sesión</router-link></p>
+            <p>¿Ya tienes una cuenta? <router-link to="/login">Inicia sesión</router-link></p>
           </div>
         </form>
       </div>
@@ -97,7 +97,7 @@ const name = ref('');
 const email = ref('');
 const password = ref('');
 const confirmPassword = ref('');
-const role = ref<'user' | 'editor' | 'admin'>('user');
+const role = ref<'student' | 'user'>('student');
 const acceptTerms = ref(false);
 
 const showTerms = () => {
@@ -115,12 +115,18 @@ const handleRegister = async () => {
     return;
   }
   
-  try {
-    // Aquí iría la llamada real al backend
-    alert('Cuenta creada exitosamente (demo)');
-    router.push('/auth/login');
-  } catch (error) {
-    alert('Error al crear la cuenta');
+  const payload = {
+    name: name.value,
+    email: email.value,
+    password: password.value,
+  };
+
+  const result = role.value === 'student'
+    ? await authStore.registerStudent(payload)
+    : await authStore.register(payload);
+
+  if (result.success) {
+    router.push(role.value === 'student' ? '/student' : '/perfil');
   }
 };
 </script>
@@ -233,6 +239,13 @@ const handleRegister = async () => {
 .btn-register:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.form-error {
+  color: #b91c1c;
+  font-weight: 700;
+  margin: 12px 0 0;
+  text-align: center;
 }
 
 .login-link {

@@ -55,9 +55,9 @@
         <!-- Formulario para nueva reseña -->
         <div v-if="activeTab === 'write'" class="write-review-tab">
           <ReviewForm
-            :type="'program'"
-            :target-id="program._id"
-            :target-name="program.name"
+            :entity-id="program._id || program.id || ''"
+            entity-type="program"
+            :entity-name="program.name"
             @submit="handleSubmitReview"
             @cancel="activeTab = 'reviews'"
           />
@@ -171,7 +171,7 @@ import { ref, computed, watch } from 'vue';
 import { useReviewsStore } from '@/stores/reviews';
 import { useAuthStore } from '@/stores/auth';
 import type { Program } from '@/types';
-import type { Review, ReviewFilters } from '@/types/reviews';
+import type { ReviewFormData, ReviewFilters } from '@/types/reviews';
 import ReviewForm from './ReviewForm.vue';
 import ReviewCard from './ReviewCard.vue';
 
@@ -198,26 +198,26 @@ const currentPage = ref(1);
 const itemsPerPage = 5;
 
 // Tabs
-const tabs = [
+const tabs: Array<{ id: 'reviews' | 'write'; label: string; icon: string }> = [
   { id: 'reviews', label: 'Ver reseñas', icon: '📖' },
   { id: 'write', label: 'Escribir reseña', icon: '✍️' },
 ];
 
 // Computed
 const stats = computed(() => {
-  return reviewsStore.getProgramStats(props.program._id!);
+  return reviewsStore.getProgramStats(props.program._id || props.program.id || '');
 });
 
 const reviews = computed(() => {
-  return reviewsStore.getProgramReviews(props.program._id!);
+  return reviewsStore.getProgramReviews(props.program._id || props.program.id || '');
 });
 
 const filteredReviews = computed(() => {
   let result = [...reviews.value];
 
   // Aplicar filtros
-  if (filters.value.minRating > 0) {
-    result = result.filter(review => review.rating >= filters.value.minRating);
+  if ((filters.value.minRating || 0) > 0) {
+    result = result.filter(review => review.rating >= (filters.value.minRating || 0));
   }
 
   if (filters.value.verifiedOnly) {
@@ -271,11 +271,11 @@ const closeModal = () => {
 };
 
 const getDistributionPercentage = (rating: number) => {
-  const count = stats.value.ratingDistribution[rating as keyof typeof stats.ratingDistribution];
+  const count = stats.value.ratingDistribution[rating as 1 | 2 | 3 | 4 | 5] || 0;
   return stats.value.totalReviews > 0 ? (count / stats.value.totalReviews) * 100 : 0;
 };
 
-const handleSubmitReview = async (reviewData: any) => {
+const handleSubmitReview = async (reviewData: ReviewFormData) => {
   if (!authStore.isAuthenticated) {
     alert('Debes iniciar sesión para escribir una reseña');
     activeTab.value = 'reviews';
@@ -285,10 +285,10 @@ const handleSubmitReview = async (reviewData: any) => {
   try {
     await reviewsStore.addReview({
       ...reviewData,
-      type: 'program',
-      targetId: props.program._id!,
+      entityType: 'program',
+      entityId: props.program._id || props.program.id || '',
       userId: authStore.user?.id || 'guest',
-      userName: authStore.user?.username || 'Usuario',
+      userName: authStore.user?.username || authStore.user?.name || 'Usuario',
     });
 
     alert('¡Reseña enviada exitosamente! Será revisada por nuestros moderadores.');

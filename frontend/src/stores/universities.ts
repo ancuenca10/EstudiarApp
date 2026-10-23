@@ -3,6 +3,15 @@ import { computed, ref } from 'vue';
 import api from '@/services/api';
 import type { Program, University } from '@/types/university';
 
+type DynamicFieldValue = {
+  fieldId: string;
+  nombreInterno: string;
+  etiqueta: string;
+  tipo: string;
+  value: string | null;
+  orden: number;
+};
+
 type ApiUniversity = {
   id: string;
   nombre: string;
@@ -10,6 +19,18 @@ type ApiUniversity = {
   ciudad: string;
   userId: string;
   estado: string;
+  dynamicFields?: DynamicFieldValue[];
+  programas?: Array<{
+    id: string;
+    nombre: string;
+    descripcion?: string;
+    precio?: number | string;
+    modalidad?: string;
+    duracion?: string;
+    estado?: string;
+    dynamicFields?: DynamicFieldValue[];
+  }>;
+  programasCount?: number;
   creadoEn: string;
   actualizadoEn: string;
 };
@@ -23,18 +44,29 @@ const mapUniversity = (university: ApiUniversity): University => ({
   city: university.ciudad,
   website: '',
   description: university.descripcion,
-  logo: 'https://via.placeholder.com/100',
-  accreditation: university.estado === 'aprobado' ? 'Aprobada' : 'Pendiente',
-  cost: 0,
-  tuition: 0,
+  accreditation: undefined,
+  dynamicFields: university.dynamicFields || [],
   status: university.estado === 'aprobado' ? 'approved' : 'pending_review',
   createdBy: university.userId,
   createdAt: new Date(university.creadoEn),
   updatedAt: new Date(university.actualizadoEn),
   version: 1,
-  type: 'private',
-  rating: 0,
-  programs: [],
+  programs: (university.programas || []).map((program) => ({
+    id: program.id,
+    _id: program.id,
+    name: program.nombre,
+    description: program.descripcion,
+    duration: program.duracion,
+    price:
+      program.precio !== undefined && program.precio !== null
+        ? Number(program.precio)
+        : undefined,
+    modality: program.modalidad,
+    cost: program.precio !== undefined ? String(program.precio) : undefined,
+    dynamicFields: program.dynamicFields || [],
+    status: program.estado === 'aprobado' ? 'approved' : 'pending_review',
+    createdAt: new Date(university.creadoEn),
+  })),
 });
 
 export const useUniversitiesStore = defineStore('universities', () => {
@@ -42,6 +74,7 @@ export const useUniversitiesStore = defineStore('universities', () => {
   const programs = ref<Program[]>([]);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
+  const currentUniversity = ref<University | null>(null);
 
   const fetchUniversities = async (): Promise<void> => {
     try {
@@ -50,6 +83,10 @@ export const useUniversitiesStore = defineStore('universities', () => {
 
       const response = await api.get<{ universidades: ApiUniversity[] }>('/universidades');
       universities.value = response.data.universidades.map(mapUniversity);
+      if (currentUniversity.value) {
+        currentUniversity.value =
+          universities.value.find((item) => item.id === currentUniversity.value?.id) || null;
+      }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Error cargando universidades';
       universities.value = [];
@@ -65,11 +102,13 @@ export const useUniversitiesStore = defineStore('universities', () => {
   const loadUniversityById = async (id: string): Promise<University | null> => {
     const existing = getUniversityById(id);
     if (existing) {
+      currentUniversity.value = existing;
       return existing;
     }
 
     await fetchUniversities();
-    return getUniversityById(id) || null;
+    currentUniversity.value = getUniversityById(id) || null;
+    return currentUniversity.value;
   };
 
   const createUniversity = async (universityData: Partial<University>) => {
@@ -81,6 +120,7 @@ export const useUniversitiesStore = defineStore('universities', () => {
 
     const university = mapUniversity(response.data.universidad);
     universities.value.unshift(university);
+    currentUniversity.value = university;
     return university;
   };
 
@@ -145,18 +185,24 @@ export const useUniversitiesStore = defineStore('universities', () => {
     universities.value.filter((university) => university.type === 'private')
   );
 
+  const loadUniversities = fetchUniversities;
+  const fetchUniversityById = loadUniversityById;
+
   return {
     universities,
     programs,
     isLoading,
     error,
+    currentUniversity,
     approvedUniversities,
     pendingUniversities,
     publicUniversities,
     privateUniversities,
     fetchUniversities,
+    loadUniversities,
     getUniversityById,
     loadUniversityById,
+    fetchUniversityById,
     createUniversity,
     updateUniversity,
     approveUniversity,

@@ -1,10 +1,12 @@
 <template>
-  <main class="admin-page">
+  <main class="ea-page">
+    <AppNavbar />
+    <div class="admin-page">
     <header class="page-header">
       <div>
         <p class="eyebrow">SUPERADMIN</p>
         <h1>Usuarios</h1>
-        <p>Crear administradores y asesores, listar usuarios y cambiar roles.</p>
+        <p>Crear usuarios por rol, listar cuentas y cambiar permisos.</p>
       </div>
       <button class="ghost-btn" type="button" @click="router.push('/admin')">Dashboard</button>
     </header>
@@ -12,8 +14,7 @@
     <section class="toolbar">
       <input v-model.trim="search" type="search" placeholder="Buscar usuario" />
       <div class="toolbar-actions">
-        <button type="button" class="primary-btn" @click="openModal('ADMIN')">Crear Admin</button>
-        <button type="button" class="primary-btn" @click="openModal('ASESOR')">Crear Asesor</button>
+        <button type="button" class="primary-btn" @click="openModal">Crear usuario</button>
       </div>
     </section>
 
@@ -64,7 +65,15 @@
 
     <div v-if="showModal" class="modal-backdrop" @click.self="closeModal">
       <form class="modal" @submit.prevent="submitUser">
-        <h2>Crear {{ modalRole }}</h2>
+        <h2>Crear usuario</h2>
+        <label>
+          Tipo de usuario
+          <select v-model="form.role" required>
+            <option v-for="role in creatableRoles" :key="role" :value="role">
+              {{ roleLabels[role] }}
+            </option>
+          </select>
+        </label>
         <label>
           Nombre
           <input v-model.trim="form.name" type="text" required />
@@ -83,25 +92,43 @@
         </div>
       </form>
     </div>
+    </div>
   </main>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import AppNavbar from '@/components/AppNavbar.vue';
 import { useAdminStore } from '@/stores/admin';
 import type { User, UserRole } from '@/types';
 
 const router = useRouter();
 const adminStore = useAdminStore();
 const editableRoles: UserRole[] = ['USER', 'UNIVERSITY', 'ASESOR', 'ADMIN'];
+const creatableRoles: Array<Exclude<UserRole, 'SUPERADMIN' | 'super_admin' | 'editor' | 'admin' | 'user'>> = [
+  'USER',
+  'UNIVERSITY',
+  'ASESOR',
+  'ADMIN',
+];
+const roleLabels: Record<string, string> = {
+  USER: 'Usuario / estudiante',
+  UNIVERSITY: 'Universidad',
+  ASESOR: 'Asesor',
+  ADMIN: 'Administrador',
+};
 
 const search = ref('');
 const showModal = ref(false);
-const modalRole = ref<'ADMIN' | 'ASESOR'>('ADMIN');
 const message = ref('');
 const messageType = ref<'success' | 'error'>('success');
-const form = reactive({ name: '', email: '', password: '' });
+const form = reactive({
+  name: '',
+  email: '',
+  password: '',
+  role: 'USER' as UserRole,
+});
 
 const filteredUsers = computed(() => {
   const term = search.value.toLowerCase();
@@ -116,8 +143,8 @@ const setMessage = (text: string, type: 'success' | 'error' = 'success') => {
   messageType.value = type;
 };
 
-const openModal = (role: 'ADMIN' | 'ASESOR') => {
-  modalRole.value = role;
+const openModal = () => {
+  form.role = 'USER';
   showModal.value = true;
 };
 
@@ -126,16 +153,18 @@ const closeModal = () => {
   form.name = '';
   form.email = '';
   form.password = '';
+  form.role = 'USER';
 };
 
 const submitUser = async () => {
   try {
-    if (modalRole.value === 'ADMIN') {
-      await adminStore.createAdmin({ ...form });
-    } else {
-      await adminStore.createAsesor({ ...form });
-    }
-    setMessage(`${modalRole.value} creado correctamente`);
+    await adminStore.createUser({
+      name: form.name,
+      email: form.email,
+      password: form.password,
+      role: form.role,
+    });
+    setMessage(`${roleLabels[form.role] || 'Usuario'} creado correctamente`);
     closeModal();
   } catch {
     setMessage(adminStore.error || 'No se pudo crear el usuario', 'error');
@@ -264,7 +293,8 @@ label {
   margin-bottom: 14px;
 }
 
-label input {
+label input,
+label select {
   display: block;
   margin-top: 6px;
   width: 100%;

@@ -178,6 +178,10 @@ export const createUniversity = async (universityData: Omit<University, '_id'>):
   const universities = getStoredUniversities();
   const newUniversity: University = {
     _id: generateId(),
+    name: universityData.name || 'Universidad',
+    country: universityData.country || 'Colombia',
+    city: universityData.city || '',
+    programs: universityData.programs || [],
     ...universityData
   };
   
@@ -197,7 +201,7 @@ export const updateUniversity = async (id: string, universityData: Partial<Unive
   
   universities[index] = { ...universities[index], ...universityData };
   saveUniversities(universities);
-  return universities[index];
+  return universities[index] || { _id: id, name: 'Universidad', country: 'Colombia', city: '', programs: [] };
 };
 
 export const deleteUniversity = async (id: string): Promise<void> => {
@@ -224,9 +228,11 @@ export const addProgram = async (universityId: string, programData: Omit<Program
   
   const newProgram: Program = {
     _id: generateId(),
+    name: programData.name || 'Programa',
     ...programData
   };
   
+  university.programs = university.programs || [];
   university.programs.push(newProgram);
   saveUniversities(universities);
   return newProgram;
@@ -241,6 +247,7 @@ export const updateProgram = async (universityId: string, programId: string, pro
     throw new Error('University not found');
   }
   
+  university.programs = university.programs || [];
   const programIndex = university.programs.findIndex(prog => prog._id === programId);
   if (programIndex === -1) {
     throw new Error('Program not found');
@@ -248,7 +255,7 @@ export const updateProgram = async (universityId: string, programId: string, pro
   
   university.programs[programIndex] = { ...university.programs[programIndex], ...programData };
   saveUniversities(universities);
-  return university.programs[programIndex];
+  return university.programs[programIndex] || { _id: programId, name: 'Programa' };
 };
 
 export const deleteProgram = async (universityId: string, programId: string): Promise<void> => {
@@ -260,6 +267,7 @@ export const deleteProgram = async (universityId: string, programId: string): Pr
     throw new Error('University not found');
   }
   
+  university.programs = university.programs || [];
   const initialLength = university.programs.length;
   university.programs = university.programs.filter(prog => prog._id !== programId);
   

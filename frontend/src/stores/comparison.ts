@@ -1,30 +1,37 @@
 // src/stores/comparison.ts - Versión completa con ambos métodos
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 import type { ComparisonItem, ProgramComparisonData } from '@/types';
 
 export interface ComparisonUniversity {
   id: string;
   _id?: string;
   name: string;
-  city: string;
-  country: string;
-  type: string;
+  city?: string;
+  country?: string;
+  type?: string | null;
   description?: string;
-  programs: any[];
+  programs: unknown[];
   rating: number | null;
-  addedAt: Date;
+  addedAt?: Date;
+}
+
+export interface ComparisonProgramItem extends ComparisonItem {
+  id: string;
+  type: 'program';
 }
 
 export const useComparisonStore = defineStore('comparison', () => {
   // Estado - DOS tipos de comparación
   const universities = ref<ComparisonUniversity[]>([]);
-  const programs = ref<ComparisonItem[]>([]);
+  const programs = ref<ComparisonProgramItem[]>([]);
   
   const maxUniversities = ref(3);
   const maxPrograms = ref(4);
   const isComparing = ref(false);
   const viewMode = ref<'universities' | 'programs'>('universities');
+  const storageScope = ref<'account' | 'guest'>('guest');
 
   // ============ COMPUTED PROPERTIES ============
 
@@ -38,18 +45,25 @@ export const useComparisonStore = defineStore('comparison', () => {
   const canAddMorePrograms = computed(() => programs.value.length < maxPrograms.value);
   const isProgramsFull = computed(() => programs.value.length >= maxPrograms.value);
 
-  const comparisonItems = computed(() => 
-    viewMode.value === 'universities' ? universities.value : programs.value
-  );
-  const itemCount = computed(() => 
-    viewMode.value === 'universities' ? universityCount.value : programCount.value
-  );
+  const comparisonItems = computed(() => universities.value);
+  const programComparisonItems = computed(() => programs.value);
+  const itemCount = computed(() => universityCount.value + programCount.value);
+  const getItemCount = computed(() => programs.value.length);
+  const canAddMore = computed(() => canAddMorePrograms.value);
+  const isFull = computed(() => isProgramsFull.value);
+  const hasItems = computed(() => itemCount.value > 0);
 
   // ============ MÉTODOS PARA UNIVERSIDADES ============
 
   const isUniversityInComparison = (universityId: string): boolean => {
     return universities.value.some(item => 
       item.id === universityId || item._id === universityId
+    );
+  };
+
+  const isProgramInComparison = (programId: string, universityId: string): boolean => {
+    return programs.value.some(item =>
+      item.programId === programId && item.universityId === universityId
     );
   };
 
@@ -90,33 +104,83 @@ export const useComparisonStore = defineStore('comparison', () => {
 
   // ============ MÉTODOS PARA PROGRAMAS ============
 
-  const isProgramInComparison = (programId: string, universityId: string): boolean => {
-    return programs.value.some(item => 
-      item.programId === programId && item.universityId === universityId
-    );
-  };
-
   const addProgramToComparison = (
-    programId: string, 
-    universityId: string, 
-    programName: string, 
-    universityName: string,
-    programData?: any
+    programIdOrItem: string | {
+      id?: string;
+      _id?: string;
+      name?: string;
+      universityId?: string;
+      universidadId?: string;
+      universityName?: string;
+      universidadNombre?: string;
+      nombre?: string;
+      level?: string;
+      duration?: string;
+      duracion?: string;
+      modality?: string;
+      modalidad?: string;
+      price?: number | string;
+      precio?: number | string;
+      schedule?: string;
+      quality_rating?: number;
+      weekly_hours?: number;
+      requires_exam?: boolean;
+      requires_interview?: boolean;
+      cost?: number | string;
+    },
+    universityId?: string,
+    programName?: string,
+    universityName?: string,
+    programData?: Partial<ProgramComparisonData>
   ) => {
+    if (typeof programIdOrItem !== 'string') {
+      const item = programIdOrItem;
+      const resolvedProgramId = item.id || item._id;
+      const resolvedUniversityId = item.universityId || item.universidadId;
+
+      if (!resolvedProgramId || !resolvedUniversityId) {
+        throw new Error('Datos del programa incompletos para comparar');
+      }
+
+      return addProgramToComparison(
+        resolvedProgramId,
+        resolvedUniversityId,
+        item.name || item.nombre || 'Programa',
+        item.universityName || item.universidadNombre || 'Universidad',
+        {
+          level: item.level || '',
+          duration: item.duration || item.duracion || '',
+          price: Number(item.price ?? item.precio ?? item.cost ?? 0),
+          modality: item.modality || item.modalidad || '',
+          schedule: item.schedule || '',
+          quality_rating: item.quality_rating,
+          weekly_hours: item.weekly_hours,
+          requires_exam: item.requires_exam,
+          requires_interview: item.requires_interview,
+        }
+      );
+    }
+
+    if (!universityId || !programName || !universityName) {
+      throw new Error('Datos del programa incompletos para comparar');
+    }
+
     if (isProgramsFull.value) {
       throw new Error(`No puedes comparar más de ${maxPrograms.value} programas`);
     }
 
     const exists = programs.value.find(item => 
-      item.programId === programId && item.universityId === universityId
+      item.programId === programIdOrItem && item.universityId === universityId
     );
     
     if (exists) {
       throw new Error('Este programa ya está en la comparación');
     }
 
-    const newItem: ComparisonItem = {
-      programId,
+    const newItem: ComparisonProgramItem = {
+      id: `${programIdOrItem}:${universityId}`,
+      type: 'program',
+      programId: programIdOrItem,
       programName,
       universityId,
       universityName,
@@ -155,18 +219,28 @@ export const useComparisonStore = defineStore('comparison', () => {
   // ============ MÉTODOS DE AYUDA ============
 
   // Método de compatibilidad para HomeView
-  const isInComparison = (universityId: string): boolean => {
-    return isUniversityInComparison(universityId);
+  const isInComparison = (primaryId: string, secondaryId?: string): boolean => {
+    if (secondaryId) {
+      return isProgramInComparison(primaryId, secondaryId);
+    }
+
+    return isUniversityInComparison(primaryId);
   };
 
-  // Método de compatibilidad para HomeView
-  const addToComparison = (university: ComparisonUniversity) => {
-    return addUniversityToComparison(university);
+  const removeFromComparison = (id: string, secondaryId?: string) => {
+    if (secondaryId) {
+      return removeProgramFromComparison(id, secondaryId);
+    }
+    return removeUniversityFromComparison(id);
   };
 
-  // Método de compatibilidad para HomeView
-  const removeFromComparison = (universityId: string) => {
-    return removeUniversityFromComparison(universityId);
+  const addToComparison = (...args: [ComparisonUniversity] | [string, string, string, string, Partial<ProgramComparisonData>?]) => {
+    if (typeof args[0] === 'string') {
+      const [programId, universityId, programName, universityName, programData] = args;
+      return addProgramToComparison(programId, universityId, programName, universityName, programData);
+    }
+
+    return addUniversityToComparison(args[0]);
   };
 
   const getProgramComparisonData = (): ProgramComparisonData[] => {
@@ -191,10 +265,13 @@ export const useComparisonStore = defineStore('comparison', () => {
   // ============ PERSISTENCIA ============
 
   const saveToLocalStorage = () => {
+    const authStore = useAuthStore();
+    authStore.checkAuth();
+    const key = getStorageKey();
     const data = {
       universities: universities.value.map(item => ({
         ...item,
-        addedAt: item.addedAt.toISOString()
+        addedAt: (item.addedAt || new Date()).toISOString()
       })),
       programs: programs.value.map(item => ({
         ...item,
@@ -204,11 +281,28 @@ export const useComparisonStore = defineStore('comparison', () => {
       lastUpdated: new Date().toISOString()
     };
     
-    localStorage.setItem('estudiarapp-comparison-v3', JSON.stringify(data));
+    localStorage.setItem(key, JSON.stringify(data));
+  };
+
+  const getStorageKey = () => {
+    const authStore = useAuthStore();
+    authStore.checkAuth();
+    const userId = authStore.user?.id || authStore.user?._id;
+
+    if (authStore.isAuthenticated && userId) {
+      storageScope.value = 'account';
+      return `estudiarapp-comparison-v3-user-${userId}`;
+    }
+
+    storageScope.value = 'guest';
+    return 'estudiarapp-comparison-v3-guest';
   };
 
   const loadFromLocalStorage = () => {
-    const saved = localStorage.getItem('estudiarapp-comparison-v3');
+    const key = getStorageKey();
+    const legacy = localStorage.getItem('estudiarapp-comparison-v3');
+    const saved = localStorage.getItem(key) || legacy;
+
     if (saved) {
       try {
         const data = JSON.parse(saved);
@@ -223,6 +317,8 @@ export const useComparisonStore = defineStore('comparison', () => {
         if (data.programs) {
           programs.value = data.programs.map((item: any) => ({
             ...item,
+            id: item.id || `${item.programId}:${item.universityId}`,
+            type: 'program',
             addedAt: new Date(item.addedAt)
           }));
         }
@@ -230,11 +326,22 @@ export const useComparisonStore = defineStore('comparison', () => {
         if (data.viewMode) {
           viewMode.value = data.viewMode;
         }
+
+        if (!localStorage.getItem(key)) {
+          saveToLocalStorage();
+        }
       } catch (error) {
         console.error('Error loading comparison from localStorage:', error);
         clearComparison();
       }
+    } else {
+      universities.value = [];
+      programs.value = [];
     }
+  };
+
+  const refreshStorageScope = () => {
+    loadFromLocalStorage();
   };
 
   // Inicializar
@@ -248,6 +355,7 @@ export const useComparisonStore = defineStore('comparison', () => {
     maxPrograms,
     isComparing,
     viewMode,
+    storageScope,
 
     // Computed properties
     universityItems,
@@ -261,7 +369,12 @@ export const useComparisonStore = defineStore('comparison', () => {
     isProgramsFull,
     
     comparisonItems,
+    programComparisonItems,
     itemCount,
+    getItemCount,
+    canAddMore,
+    isFull,
+    hasItems,
 
     // Métodos para universidades
     isUniversityInComparison,
@@ -287,5 +400,6 @@ export const useComparisonStore = defineStore('comparison', () => {
     // Métodos de persistencia
     loadFromLocalStorage,
     saveToLocalStorage,
+    refreshStorageScope,
   };
 });

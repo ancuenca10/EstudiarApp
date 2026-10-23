@@ -122,6 +122,16 @@
           <h2>📝 Descripción</h2>
           <p class="description-text">{{ university.description }}</p>
         </div>
+
+        <div v-if="universityDynamicFields.length > 0" class="dynamic-fields-section">
+          <h2>Informacion adicional</h2>
+          <div class="dynamic-fields-grid">
+            <div v-for="field in universityDynamicFields" :key="field.fieldId" class="dynamic-field-card">
+              <span class="dynamic-field-label">{{ field.etiqueta }}</span>
+              <span class="dynamic-field-value">{{ getDynamicFieldDisplayValue(field) }}</span>
+            </div>
+          </div>
+        </div>
         
         <!-- Programas académicos -->
         <div class="programs-section">
@@ -417,6 +427,25 @@ const filteredPrograms = computed(() => {
     return matchesLevel && matchesArea;
   });
 });
+
+const universityDynamicFields = computed(() => {
+  if (!Array.isArray(university.value?.dynamicFields)) return [];
+  return university.value.dynamicFields.filter(
+    (field: any) => field?.visibleInDetail !== false && field?.value !== null && field?.value !== ''
+  );
+});
+
+const getDynamicFieldDisplayValue = (field: any): string => {
+  if (!field) return '-';
+  if (Array.isArray(field.value)) {
+    return field.value.join(', ');
+  }
+  if (field.tipo === 'checkbox') {
+    return field.value === true || field.value === 'true' ? 'Si' : 'No';
+  }
+
+  return field.value || '-';
+};
 
 // Helper para formatear URL del website
 const formatWebsite = (url: string): string => {
@@ -1158,6 +1187,39 @@ onMounted(() => {
   white-space: pre-line;
 }
 
+.dynamic-fields-section {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.dynamic-fields-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.dynamic-field-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.dynamic-field-label {
+  color: #64748b;
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 0.35rem;
+}
+
+.dynamic-field-value {
+  color: #0f172a;
+  font-weight: 700;
+}
+
 /* Programas */
 .programs-section {
   background: white;
@@ -1553,6 +1615,7 @@ onMounted(() => {
 
 @media (max-width: 480px) {
   .university-header, .description-section,
+  .dynamic-fields-section,
   .programs-section {
     padding: 1.5rem;
   }

@@ -8,6 +8,12 @@ type BackendAuthResponse = {
     name: string;
     email: string;
     role: User['role'];
+    tipoUsuario?: string;
+    plan?: User['plan'];
+    estadoSuscripcion?: User['estadoSuscripcion'];
+    fechaInicioPlan?: string | null;
+    fechaFinPlan?: string | null;
+    preferenciasCompletadas?: boolean;
     createdAt?: string;
     updatedAt?: string;
   };
@@ -19,6 +25,12 @@ const mapUser = (user: BackendAuthResponse['user']): User => ({
   email: user.email,
   name: user.name,
   role: user.role,
+  tipoUsuario: user.tipoUsuario,
+  plan: user.plan,
+  estadoSuscripcion: user.estadoSuscripcion,
+  fechaInicioPlan: user.fechaInicioPlan,
+  fechaFinPlan: user.fechaFinPlan,
+  preferenciasCompletadas: user.preferenciasCompletadas,
   status: 'active',
   emailVerified: true,
   permissions: [],
@@ -41,6 +53,20 @@ export const authService = {
 
   async register(data: RegisterData): Promise<RegisterResponse> {
     const response = await api.post<BackendAuthResponse>('/auth/register', {
+      name: data.name.trim(),
+      email: data.email.trim(),
+      password: data.password,
+    });
+
+    return {
+      token: response.data.token,
+      user: mapUser(response.data.user),
+      requiresEmailVerification: false,
+    };
+  },
+
+  async registerStudent(data: RegisterData): Promise<RegisterResponse> {
+    const response = await api.post<BackendAuthResponse>('/auth/register-student', {
       name: data.name.trim(),
       email: data.email.trim(),
       password: data.password,

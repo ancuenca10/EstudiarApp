@@ -6,7 +6,7 @@
       <div class="program-title-section">
         <h3 class="program-name">{{ program.name }}</h3>
         <div class="program-level">
-          <span class="level-badge" :class="program.level.toLowerCase()">
+          <span class="level-badge" :class="(program.level || '').toLowerCase()">
             {{ program.level }}
           </span>
           <span v-if="program.duration" class="duration">
@@ -34,7 +34,7 @@
           📍 {{ university.city }}, {{ university.country }}
         </span>
       </div>
-      <div class="university-type" :class="university.type.toLowerCase()">
+      <div class="university-type" :class="(university.type || '').toLowerCase()">
         {{ university.type }}
       </div>
     </div>
@@ -44,7 +44,7 @@
       <div class="detail-row">
         <div class="detail-item">
           <span class="detail-label">💵 Costo:</span>
-          <span class="detail-value">{{ formatPrice(program.price) }}</span>
+          <span class="detail-value">{{ formatPrice(program.price || 0) }}</span>
         </div>
         <div class="detail-item">
           <span class="detail-label">🎓 Modalidad:</span>
@@ -159,12 +159,12 @@ const comparisonStore = useComparisonStore();
 // Computed properties
 const isFavorite = computed(() => {
   if (!props.university) return false;
-  return favoritesStore.isProgramFavorite(props.program._id, props.university._id);
+  return favoritesStore.isProgramFavorite(props.program._id || props.program.id || '', props.university._id || props.university.id || '');
 });
 
 const isInComparison = computed(() => {
   if (!props.university) return false;
-  return comparisonStore.isProgramInComparison(props.program._id, props.university._id);
+  return comparisonStore.isProgramInComparison(props.program._id || props.program.id || '', props.university._id || props.university.id || '');
 });
 
 // Métodos
@@ -197,7 +197,7 @@ const toggleComparison = () => {
   
   try {
     if (isInComparison.value) {
-      comparisonStore.removeProgramFromComparison(props.program._id, props.university._id);
+      comparisonStore.removeProgramFromComparison(props.program._id || props.program.id || '', props.university._id || props.university.id || '');
       showNotification(`⚖️ "${props.program.name}" removido de comparación`, 'info');
     } else {
       if (comparisonStore.isFull) {
@@ -206,10 +206,10 @@ const toggleComparison = () => {
       }
       
       comparisonStore.addProgramToComparison(
-        props.program._id,
-        props.university._id,
-        props.program.name,
-        props.university.name,
+        props.program._id || props.program.id || '',
+        props.university._id || props.university.id || '',
+        props.program.name || 'Programa',
+        props.university.name || 'Universidad',
         props.program // Pasamos todos los datos del programa
       );
       showNotification(`⚖️ "${props.program.name}" agregado a comparación`, 'success');

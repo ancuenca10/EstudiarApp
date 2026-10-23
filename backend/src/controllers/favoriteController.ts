@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
+import type { DatabaseError } from 'pg';
 import { query } from '../config/db';
 import { AppError } from '../middleware/errorHandler';
 
@@ -38,6 +39,24 @@ const publicFavoriteFields = (favorite: FavoriteRow) => ({
     descripcion: favorite.referencia_descripcion,
   },
 });
+
+const handleFavoriteDbError = (error: unknown) => {
+  const dbError = error as DatabaseError;
+
+  if (dbError?.code === '42P01') {
+    return new AppError('La tabla de favoritos no existe. Ejecuta backend/database/20260427_favorites_safety.sql', 424);
+  }
+
+  if (dbError?.code === '23505') {
+    return new AppError('El favorito ya existe para este usuario', 409);
+  }
+
+  if (dbError?.code === '23503') {
+    return new AppError('La referencia del favorito no es valida', 400);
+  }
+
+  return error;
+};
 
 const favoritesSelect = `
   SELECT
@@ -108,7 +127,7 @@ export const createFavorite = async (
       favorito: publicFavoriteFields(result.rows[0] as FavoriteRow),
     });
   } catch (error) {
-    return next(error);
+    return next(handleFavoriteDbError(error));
   }
 };
 
@@ -135,7 +154,7 @@ export const getFavorites = async (
       ),
     });
   } catch (error) {
-    return next(error);
+    return next(handleFavoriteDbError(error));
   }
 };
 
@@ -162,6 +181,6 @@ export const deleteFavorite = async (
 
     return res.json({ message: 'Favorito eliminado exitosamente' });
   } catch (error) {
-    return next(error);
+    return next(handleFavoriteDbError(error));
   }
 };

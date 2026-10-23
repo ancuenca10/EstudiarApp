@@ -2,7 +2,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { University } from '@/types'
-import { adminService } from '@/services/adminApi'
+import adminService from '@/services/adminApi'
 
 export const useUniversityStore = defineStore('university', () => {
   const universities = ref<University[]>([])

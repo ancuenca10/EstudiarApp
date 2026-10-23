@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import type { User, UserRole, UserStatus } from '@/types/auth';
-import { userService } from '@/services/userService';
+import api from '@/services/api';
 
 export const useUsersStore = defineStore('users', () => {
   // Estado
@@ -24,11 +24,12 @@ export const useUsersStore = defineStore('users', () => {
       isLoading.value = true;
       error.value = null;
       
-      const response = await userService.getUsers(filters.value);
-      users.value = response.users;
-      totalUsers.value = response.total;
+      const response = await api.get('/users', { params: filters.value });
+      const data = response.data as { users?: User[]; total?: number };
+      users.value = data.users || [];
+      totalUsers.value = data.total || users.value.length;
       
-      return { success: true, users: response.users };
+      return { success: true, users: users.value };
     } catch (err: any) {
       error.value = err.message || 'Error al cargar usuarios';
       return { success: false, error: error.value };
@@ -42,7 +43,8 @@ export const useUsersStore = defineStore('users', () => {
       isLoading.value = true;
       error.value = null;
       
-      const user = await userService.getUserById(userId);
+      const response = await api.get(`/users/${userId}`);
+      const user = response.data.user || response.data;
       currentUser.value = user;
       
       return { success: true, user };
@@ -59,7 +61,8 @@ export const useUsersStore = defineStore('users', () => {
       isLoading.value = true;
       error.value = null;
       
-      const newUser = await userService.createUser(userData);
+      const response = await api.post('/users', userData);
+      const newUser = response.data.user || response.data;
       users.value.unshift(newUser);
       totalUsers.value += 1;
       
@@ -77,7 +80,8 @@ export const useUsersStore = defineStore('users', () => {
       isLoading.value = true;
       error.value = null;
       
-      const updatedUser = await userService.updateUser(userId, userData);
+      const response = await api.patch(`/users/${userId}`, userData);
+      const updatedUser = response.data.user || response.data;
       
       // Actualizar en la lista
       const index = users.value.findIndex(u => u.id === userId);
@@ -104,7 +108,7 @@ export const useUsersStore = defineStore('users', () => {
       isLoading.value = true;
       error.value = null;
       
-      await userService.deleteUser(userId);
+      await api.delete(`/users/${userId}`);
       
       // Remover de la lista
       users.value = users.value.filter(u => u.id !== userId);
@@ -129,7 +133,8 @@ export const useUsersStore = defineStore('users', () => {
       isLoading.value = true;
       error.value = null;
       
-      const updatedUser = await userService.changeStatus(userId, status);
+      const response = await api.patch(`/users/${userId}/status`, { status });
+      const updatedUser = response.data.user || response.data;
       
       // Actualizar en la lista
       const index = users.value.findIndex(u => u.id === userId);
@@ -151,7 +156,7 @@ export const useUsersStore = defineStore('users', () => {
       isLoading.value = true;
       error.value = null;
       
-      await userService.resetPassword(userId);
+      await api.post(`/users/${userId}/reset-password`);
       return { success: true };
     } catch (err: any) {
       error.value = err.message || 'Error al resetear contraseña';

@@ -1,35 +1,312 @@
 @import './base.css';
 
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  font-weight: normal;
+:root {
+  --ea-primary: #2563eb;
+  --ea-primary-dark: #1d4ed8;
+  --ea-primary-soft: #eff6ff;
+  --ea-accent: #0f766e;
+  --ea-success: #16a34a;
+  --ea-warning: #f59e0b;
+  --ea-danger: #dc2626;
+  --ea-background: #f6f8fb;
+  --ea-surface: #ffffff;
+  --ea-surface-muted: #f1f5f9;
+  --ea-border: #d9e2ee;
+  --ea-text: #0f172a;
+  --ea-muted: #64748b;
+  --ea-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --ea-shadow-md: 0 10px 24px rgba(15, 23, 42, 0.08);
+  --ea-shadow-lg: 0 18px 42px rgba(15, 23, 42, 0.12);
+  --ea-radius-sm: 8px;
+  --ea-radius-md: 8px;
+  --ea-radius-lg: 8px;
 }
 
-a,
-.green {
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  background: var(--ea-background);
+  color: var(--ea-text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+a {
+  color: inherit;
   text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
-  padding: 3px;
 }
 
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
+#app {
+  width: 100%;
+  min-height: 100vh;
+}
+
+.ea-page {
+  min-height: 100vh;
+  background: var(--ea-background);
+}
+
+.ea-container {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.ea-card {
+  background: var(--ea-surface);
+  border: 1px solid var(--ea-border);
+  border-radius: var(--ea-radius-lg);
+  box-shadow: var(--ea-shadow-sm);
+}
+
+.ea-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  border: 0;
+  border-radius: var(--ea-radius-sm);
+  padding: 0 18px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ea-btn-primary {
+  background: var(--ea-primary);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+}
+
+.ea-btn-secondary {
+  background: var(--ea-surface);
+  border: 1px solid var(--ea-border);
+  color: var(--ea-text);
+}
+
+.ea-btn-soft {
+  background: var(--ea-primary-soft);
+  color: var(--ea-primary-dark);
+}
+
+.ea-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: var(--ea-primary-soft);
+  color: var(--ea-primary-dark);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.ea-status-pendiente {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.ea-status-aprobado {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.ea-status-rechazado {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.ea-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.ea-section-heading p {
+  color: var(--ea-muted);
+  margin: 6px 0 0;
+}
+
+.ea-kicker {
+  color: var(--ea-primary);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.ea-empty,
+.ea-error,
+.ea-loading {
+  padding: 28px;
+  text-align: center;
+}
+
+.ea-error {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #991b1b;
+}
+
+.ea-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.ea-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ea-grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* Compatibility layer for older role panels while they migrate to ea-* classes. */
+.admin-page,
+.becas-page,
+.profile-page,
+.comparison-view,
+.favorites-view {
+  background: var(--ea-background) !important;
+}
+
+.page-header,
+.toolbar,
+.panel,
+.table-panel,
+.modal,
+.empty-panel,
+.state-card,
+.profile-card,
+.action-panel {
+  border: 1px solid var(--ea-border) !important;
+  border-radius: var(--ea-radius-lg) !important;
+  background: var(--ea-surface) !important;
+  box-shadow: var(--ea-shadow-sm) !important;
+}
+
+.page-header {
+  background: var(--ea-surface) !important;
+}
+
+.primary-btn,
+.refresh-btn,
+.btn-primary,
+.btn-login {
+  min-height: 42px;
+  border: 0 !important;
+  border-radius: var(--ea-radius-sm) !important;
+  background: var(--ea-primary) !important;
+  color: #fff !important;
+  cursor: pointer;
+  font-weight: 800 !important;
+  padding: 10px 16px !important;
+}
+
+.ghost-btn,
+.btn-secondary,
+.btn-home,
+.clear-btn {
+  min-height: 42px;
+  border: 1px solid var(--ea-border) !important;
+  border-radius: var(--ea-radius-sm) !important;
+  background: var(--ea-surface) !important;
+  color: var(--ea-text) !important;
+  cursor: pointer;
+  font-weight: 800 !important;
+  padding: 10px 16px !important;
+}
+
+.danger-btn,
+.logout-btn,
+.btn-danger {
+  min-height: 42px;
+  border: 0 !important;
+  border-radius: var(--ea-radius-sm) !important;
+  background: var(--ea-danger) !important;
+  color: #fff !important;
+  cursor: pointer;
+  font-weight: 800 !important;
+  padding: 10px 16px !important;
+}
+
+.badge,
+.status,
+.tag,
+.role-badge {
+  border-radius: 999px;
+}
+
+.modal-backdrop {
+  backdrop-filter: blur(4px);
+}
+
+table {
+  border-collapse: collapse;
+}
+
+th {
+  color: var(--ea-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+input,
+select,
+textarea {
+  border-color: var(--ea-border) !important;
+  border-radius: var(--ea-radius-sm) !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--ea-primary) !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  outline: 0;
+}
+
+@media (max-width: 960px) {
+  .ea-grid-3,
+  .ea-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
+@media (max-width: 640px) {
+  .ea-container {
+    width: min(100% - 24px, 1180px);
   }
 
-  #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
+  .ea-grid-3,
+  .ea-grid-4 {
+    grid-template-columns: 1fr;
+  }
+
+  .ea-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

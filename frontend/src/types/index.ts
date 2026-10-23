@@ -1,44 +1,76 @@
-// src/types/index.ts
+export interface DynamicFieldValue {
+  fieldId: string
+  nombreInterno: string
+  etiqueta: string
+  tipo: string
+  value: string | string[] | boolean | null
+  visibleInCard?: boolean
+  visibleInDetail?: boolean
+  searchable?: boolean
+  filterable?: boolean
+  orden: number
+}
 
 export interface Program {
-  _id: string
-  name: string
-  level: 'Técnico' | 'Tecnológico' | 'Pregrado' | 'Posgrado'
-  duration: string
-  price: number
-  modality: 'Presencial' | 'Virtual' | 'Híbrido'
-  schedule: string
-  description: string
-  requirements: string[]
-  
-  // ✅ Campos para el comparador
-  duration_months?: number        // Duración en meses para comparación numérica
-  weekly_hours?: number          // Horas por semana
-  quality_rating?: number        // Calificación de calidad (1-5)
-  requires_exam?: boolean        // Requiere examen de admisión
-  requires_interview?: boolean   // Requiere entrevista
+  _id?: string
+  id?: string
+  name?: string
+  level?: string
+  duration?: string
+  price?: number
+  modality?: string
+  schedule?: string
+  description?: string
+  requirements?: string[]
+  universityId?: string
+  universityName?: string
+  type?: string
+  currency?: string
+  cost?: number | string
+  duration_months?: number
+  weekly_hours?: number
+  quality_rating?: number
+  requires_exam?: boolean
+  requires_interview?: boolean
+  curriculum?: Array<{ courses: Array<{ code: string; name: string; credits: number }> }>
+  graduation_rate?: number
+  cost_breakdown?: Record<string, number>
+  dynamicFields?: DynamicFieldValue[]
+  status?: string
+  approvedAt?: string | null
 }
 
 export interface University {
-  _id: string
-  name: string
-  country: string
-  state: string
-  city: string
-  type: 'Pública' | 'Privada'
-  accreditation: string
-  contact: {
-    email: string
-    phone: string
-    address: string
-    website: string
+  _id?: string
+  id?: string
+  name?: string
+  country?: string
+  state?: string
+  city?: string
+  type?: string | null
+  accreditation?: string
+  description?: string
+  contact?: {
+    email?: string
+    phone?: string
+    address?: string
+    website?: string
   }
-  programs: Program[]
-  
-  // ✅ Campos adicionales para el comparador
-  quality_rating?: number        // Calificación general de la universidad
-  student_count?: number        // Número de estudiantes
-  founded_year?: number         // Año de fundación
+  programs?: Program[]
+  quality_rating?: number
+  student_count?: number
+  founded_year?: number
+  founded?: number | string
+  campus?: string
+  rating?: number | null
+  dynamicFields?: DynamicFieldValue[]
+  status?: string
+  createdBy?: string
+  createdAt?: Date
+  updatedAt?: Date
+  logo?: string
+  website?: string
+  version?: number
 }
 
 export interface UniversityFilters {
@@ -50,7 +82,6 @@ export interface UniversityFilters {
   accreditation: string
 }
 
-// 👇 INTERFACES PARA FAVORITOS
 export interface FavoriteUniversity {
   universityId: string
   addedAt: string
@@ -67,13 +98,13 @@ export interface FavoritesState {
   programs: FavoriteProgram[]
 }
 
-// 👇 NUEVAS INTERFACES PARA EL COMPARADOR
 export interface ComparisonItem {
   programId: string
   programName: string
   universityId: string
   universityName: string
   addedAt: Date
+  programData?: Partial<ProgramComparisonData>
 }
 
 export interface ComparisonState {
@@ -82,7 +113,6 @@ export interface ComparisonState {
   isComparing: boolean
 }
 
-// 👇 TIPOS PARA DATOS DE COMPARACIÓN
 export interface ProgramComparisonData {
   id: string
   name: string
@@ -98,14 +128,14 @@ export interface ProgramComparisonData {
   weekly_hours?: number
   requires_exam?: boolean
   requires_interview?: boolean
+  addedAt?: Date
 }
 
-// 👇 INTERFACES PARA GRÁFICOS
 export interface RadarAxis {
   label: string
   key: keyof ProgramComparisonData | string
   max: number
-  value?: any // Para valores personalizados
+  value?: unknown
 }
 
 export interface ComparisonChartData {
@@ -118,18 +148,17 @@ export interface ComparisonChartData {
   }[]
 }
 
-// 👇 INTERFACES PARA RESULTADOS DE COMPARACIÓN
 export interface ComparisonResult {
   programs: ProgramComparisonData[]
-  differences: {
+  differences: Array<{
     type: string
     description: string
-    programs: {
+    programs: Array<{
       programId: string
-      value: any
+      value: unknown
       isBest: boolean
-    }[]
-  }[]
+    }>
+  }>
   recommendation: {
     programId: string
     reason: string
@@ -145,14 +174,12 @@ export interface ComparisonResult {
   }
 }
 
-// 👇 TIPO PARA FILTROS DE COMPARACIÓN
 export interface ComparisonFilter {
   field: keyof ProgramComparisonData
-  weight: number // 0-1 para ponderación
-  isAscending?: boolean // true = menor es mejor, false = mayor es mejor
+  weight: number
+  isAscending?: boolean
 }
 
-// 👇 ENUMS PARA EL COMPARADOR
 export enum ComparisonView {
   TABLE = 'table',
   CARDS = 'cards',
@@ -164,7 +191,6 @@ export enum SortOrder {
   DESC = 'desc'
 }
 
-// 👇 INTERFAZ PARA LA RECOMENDACIÓN INTELIGENTE
 export interface Recommendation {
   programId: string
   programName: string
@@ -175,7 +201,6 @@ export interface Recommendation {
   weaknesses: string[]
 }
 
-// 👇 TIPO PARA DATOS DE EXPORTACIÓN
 export interface ComparisonExportData {
   metadata: {
     exportedAt: Date
@@ -186,30 +211,32 @@ export interface ComparisonExportData {
   comparison: ComparisonResult
   recommendation: Recommendation
 }
-export interface Program {
-  id?: string
-  universityId?: string
-  status?: string
-  approvedAt?: string | null
-}
 
-export interface University {
-  id?: string
-  description?: string
-  status?: string
-  createdBy?: string
-  createdAt?: Date
-  updatedAt?: Date
-}
-
-export type UserRole = 'USER' | 'UNIVERSITY' | 'ASESOR' | 'ADMIN' | 'SUPERADMIN' | 'user' | 'editor' | 'admin' | 'super_admin'
+export type UserRole =
+  | 'USER'
+  | 'STUDENT'
+  | 'UNIVERSITY'
+  | 'ASESOR'
+  | 'ADMIN'
+  | 'SUPERADMIN'
+  | 'user'
+  | 'editor'
+  | 'admin'
+  | 'super_admin'
 
 export interface User {
   id: string
   _id?: string
   email: string
   name: string
+  username?: string
   role: UserRole
+  tipoUsuario?: string
+  plan?: 'free' | 'basic' | 'plus'
+  estadoSuscripcion?: 'active' | 'inactive' | 'past_due' | 'cancelled'
+  fechaInicioPlan?: string | null
+  fechaFinPlan?: string | null
+  preferenciasCompletadas?: boolean
   status?: string
   avatar?: string
   createdAt?: Date | string
@@ -275,4 +302,4 @@ export interface ApiUniversity {
   actualizadoEn: string
 }
 
-export * from './reviews';
+export * from './reviews'

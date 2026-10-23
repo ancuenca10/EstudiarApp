@@ -19,7 +19,7 @@
             class="icon-btn compare-btn"
             :class="{ active: isProgramInComparison }"
             :disabled="isProgramInComparison || isComparisonFull"
-            :title="isProgramInComparison ? 'En comparación' : comparisonFull ? 'Máximo alcanzado' : 'Comparar programa'"
+            :title="isProgramInComparison ? 'En comparación' : isComparisonFull ? 'Máximo alcanzado' : 'Comparar programa'"
           >
             <span class="btn-icon">{{ isProgramInComparison ? '✓' : '⚖️' }}</span>
           </button>

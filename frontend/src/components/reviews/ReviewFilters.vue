@@ -115,7 +115,7 @@ const props = defineProps<{
 const emit = defineEmits(['update:filters']);
 
 // Opciones de ordenamiento
-const sortOptions = [
+const sortOptions: Array<{ value: NonNullable<ReviewFilters['sortBy']>; label: string; icon: string }> = [
   { value: 'recent', label: 'Más recientes', icon: '🕒' },
   { value: 'helpful', label: 'Más útiles', icon: '👍' },
   { value: 'highest', label: 'Mejor puntuación', icon: '⭐' },
@@ -134,7 +134,7 @@ const ratingOptions = [
 const hasActiveFilters = computed(() => {
   return (
     props.filters.sortBy !== 'recent' ||
-    props.filters.minRating > 0 ||
+    (props.filters.minRating || 0) > 0 ||
     props.filters.verifiedOnly ||
     props.filters.withReplies ||
     props.filters.helpfulOnly
@@ -155,7 +155,7 @@ const activeFiltersList = computed(() => {
   }
 
   // Calificación mínima
-  if (props.filters.minRating > 0) {
+  if ((props.filters.minRating || 0) > 0) {
     const option = ratingOptions.find(o => o.value === props.filters.minRating);
     filters.push({
       type: 'minRating',
@@ -218,7 +218,7 @@ const resetFilters = () => {
   emit('update:filters', defaultFilters);
 };
 
-const removeFilter = (type: string, value: any) => {
+const removeFilter = (type: string, _value: unknown) => {
   const newFilters = { ...props.filters };
 
   switch (type) {

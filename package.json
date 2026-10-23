@@ -1,0 +1,13 @@
+{
+  "name": "estudiarapp",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build-only",
+    "prod:build": "docker compose --env-file .env.production -f docker-compose.production.yml build",
+    "prod:up": "docker compose --env-file .env.production -f docker-compose.production.yml up -d",
+    "prod:down": "docker compose --env-file .env.production -f docker-compose.production.yml down",
+    "prod:logs": "docker compose --env-file .env.production -f docker-compose.production.yml logs -f"
+  }
+}

@@ -47,7 +47,9 @@ export const authGuard: NavigationGuard = (to, from, next) => {
     
     // Redirigir según rol
     const role = normalizeRole(authStore.userRole);
-    if (role === 'admin' || role === 'super_admin') {
+    if (role === 'university') {
+      next('/universidad');
+    } else if (['admin', 'superadmin', 'super_admin', 'asesor'].includes(role || '')) {
       next('/admin');
     } else {
       next('/');

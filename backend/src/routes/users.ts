@@ -3,7 +3,9 @@ import {
   changeUserRole,
   createAdmin,
   createAsesor,
+  createUser,
   deleteUser,
+  listUniversityUsers,
   listUsers,
   updateUser,
 } from '../controllers/userController';
@@ -15,6 +17,8 @@ const router = Router();
 router.use(verificarToken);
 
 router.get('/', authorizeRoles(ROLES.SUPERADMIN), listUsers);
+router.get('/university-accounts', authorizeRoles(ROLES.ADMIN, ROLES.SUPERADMIN), listUniversityUsers);
+router.post('/', authorizeRoles(ROLES.SUPERADMIN), createUser);
 router.post('/admins', authorizeRoles(ROLES.SUPERADMIN), createAdmin);
 router.post('/asesores', authorizeRoles(ROLES.SUPERADMIN), createAsesor);
 router.patch('/:id', authorizeRoles(ROLES.SUPERADMIN), updateUser);

@@ -4,12 +4,23 @@ import api from '@/services/api';
 
 export interface ProgramCardData {
   id: string;
+  _id?: string;
   nombre: string;
   descripcion: string;
   precio: number;
   modalidad: string;
   duracion: string;
   universidadId: string;
+  universityId?: string;
+  universityName?: string;
+  name?: string;
+  description?: string;
+  price?: number;
+  modality?: string;
+  duration?: string;
+  type?: string;
+  currency?: string;
+  cost?: number;
   estado: string;
 }
 
@@ -22,16 +33,27 @@ type ApiProgram = {
   duracion: string;
   universidadId: string;
   estado: string;
+  universityName?: string;
 };
 
 const mapProgram = (program: ApiProgram): ProgramCardData => ({
   id: program.id,
+  _id: program.id,
   nombre: program.nombre,
+  name: program.nombre,
   descripcion: program.descripcion,
+  description: program.descripcion,
   precio: Number(program.precio),
+  price: Number(program.precio),
   modalidad: program.modalidad,
+  modality: program.modalidad,
   duracion: program.duracion,
+  duration: program.duracion,
   universidadId: program.universidadId,
+  universityId: program.universidadId,
+  universityName: program.universityName,
+  currency: 'COP',
+  cost: Number(program.precio),
   estado: program.estado,
 });
 
@@ -59,11 +81,26 @@ export const useProgramsStore = defineStore('programs', () => {
     }
   };
 
+  const getProgramById = (programId: string) =>
+    programs.value.find((program) => program.id === programId || program._id === programId);
+
+  const fetchProgramById = async (programId: string) => {
+    const existing = getProgramById(programId);
+    if (existing) {
+      return existing;
+    }
+
+    await fetchPrograms();
+    return getProgramById(programId) || null;
+  };
+
   return {
     programs,
     approvedPrograms,
     isLoading,
     error,
     fetchPrograms,
+    getProgramById,
+    fetchProgramById,
   };
 });

@@ -12,6 +12,12 @@ type UserRow = {
   email: string;
   password_hash: string;
   role: Role;
+  tipo_usuario?: string | null;
+  plan?: 'free' | 'basic' | 'plus';
+  estado_suscripcion?: string;
+  fecha_inicio_plan?: Date | null;
+  fecha_fin_plan?: Date | null;
+  preferencias_completadas?: boolean;
   created_at: Date;
   updated_at: Date;
 };
@@ -21,6 +27,12 @@ const publicUserFields = (user: UserRow) => ({
   name: user.name,
   email: user.email,
   role: user.role,
+  tipoUsuario: user.tipo_usuario,
+  plan: user.plan,
+  estadoSuscripcion: user.estado_suscripcion,
+  fechaInicioPlan: user.fecha_inicio_plan,
+  fechaFinPlan: user.fecha_fin_plan,
+  preferenciasCompletadas: user.preferencias_completadas,
   createdAt: user.created_at,
   updatedAt: user.updated_at,
 });
@@ -98,6 +110,79 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
   }
 };
 
+export const registerStudent = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { name, username, email, password } = req.body;
+    const displayName = normalizeText(name || username);
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!displayName || !normalizedEmail || !password) {
+      throw new AppError('name, email y password son obligatorios', 400);
+    }
+
+    if (!isValidEmail(normalizedEmail)) {
+      throw new AppError('El email no tiene un formato valido', 400);
+    }
+
+    if (typeof password !== 'string' || password.length < 6) {
+      throw new AppError('La contrasena debe tener al menos 6 caracteres', 400);
+    }
+
+    const existingUser = await query(
+      'SELECT id FROM users WHERE email = $1 LIMIT 1',
+      [normalizedEmail]
+    );
+
+    if (existingUser.rowCount) {
+      throw new AppError('El email ya existe', 409);
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const result = await query(
+      `WITH new_user AS (
+         INSERT INTO users (
+           name, email, password_hash, role, tipo_usuario, plan,
+           estado_suscripcion, preferencias_completadas
+         )
+         VALUES ($1, $2, $3, $4, 'student', 'free', 'inactive', FALSE)
+         RETURNING
+           id, name, email, password_hash, role, tipo_usuario, plan,
+           estado_suscripcion, fecha_inicio_plan, fecha_fin_plan,
+           preferencias_completadas, created_at, updated_at
+       )
+       INSERT INTO student_profiles (user_id)
+       SELECT id FROM new_user
+       RETURNING
+         (SELECT id FROM new_user) AS id,
+         (SELECT name FROM new_user) AS name,
+         (SELECT email FROM new_user) AS email,
+         (SELECT password_hash FROM new_user) AS password_hash,
+         (SELECT role FROM new_user) AS role,
+         (SELECT tipo_usuario FROM new_user) AS tipo_usuario,
+         (SELECT plan FROM new_user) AS plan,
+         (SELECT estado_suscripcion FROM new_user) AS estado_suscripcion,
+         (SELECT fecha_inicio_plan FROM new_user) AS fecha_inicio_plan,
+         (SELECT fecha_fin_plan FROM new_user) AS fecha_fin_plan,
+         (SELECT preferencias_completadas FROM new_user) AS preferencias_completadas,
+         (SELECT created_at FROM new_user) AS created_at,
+         (SELECT updated_at FROM new_user) AS updated_at`,
+      [displayName, normalizedEmail, passwordHash, ROLES.STUDENT]
+    );
+
+    const user = result.rows[0] as UserRow;
+    const token = signToken(user);
+
+    return res.status(201).json({
+      message: 'Estudiante registrado exitosamente',
+      token,
+      user: publicUserFields(user),
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 export const login = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body;
@@ -116,7 +201,10 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     }
 
     const result = await query(
-      `SELECT id, name, email, password_hash, role, created_at, updated_at
+      `SELECT
+         id, name, email, password_hash, role, tipo_usuario, plan,
+         estado_suscripcion, fecha_inicio_plan, fecha_fin_plan,
+         preferencias_completadas, created_at, updated_at
        FROM users
        WHERE email = $1
        LIMIT 1`,

@@ -1,14 +1,18 @@
 import { Router } from 'express';
 import {
   approveProgram,
+  changeProgramStatus,
   createProgram,
   deleteProgram,
   getAllProgramsForAdmin,
+  getApprovedProgramById,
   getApprovedPrograms,
+  getProgramModerationHistory,
   updateProgram,
 } from '../controllers/programController';
 import { authorizeRoles, verificarToken } from '../middleware/auth';
 import { ROLES } from '../constants/roles';
+import { logStudentActivity, optionalStudentAuth } from '../middleware/studentActivity';
 
 const router = Router();
 
@@ -21,11 +25,25 @@ router.get(
 
 router.get('/', getApprovedPrograms);
 
+router.get(
+  '/:id',
+  optionalStudentAuth,
+  logStudentActivity('view_program', (req) => req.params.id),
+  getApprovedProgramById
+);
+
 router.post(
   '/',
   verificarToken,
-  authorizeRoles(ROLES.UNIVERSITY, ROLES.SUPERADMIN),
+  authorizeRoles(ROLES.ASESOR, ROLES.ADMIN, ROLES.SUPERADMIN),
   createProgram
+);
+
+router.patch(
+  '/:id/status',
+  verificarToken,
+  authorizeRoles(ROLES.ASESOR, ROLES.ADMIN, ROLES.SUPERADMIN),
+  changeProgramStatus
 );
 
 router.put(
@@ -33,6 +51,13 @@ router.put(
   verificarToken,
   authorizeRoles(ROLES.ASESOR, ROLES.ADMIN, ROLES.SUPERADMIN),
   approveProgram
+);
+
+router.get(
+  '/:id/moderation-history',
+  verificarToken,
+  authorizeRoles(ROLES.UNIVERSITY, ROLES.ASESOR, ROLES.ADMIN, ROLES.SUPERADMIN),
+  getProgramModerationHistory
 );
 
 router.put(
@@ -45,7 +70,7 @@ router.put(
 router.delete(
   '/:id',
   verificarToken,
-  authorizeRoles(ROLES.ASESOR, ROLES.ADMIN, ROLES.SUPERADMIN),
+  authorizeRoles(ROLES.ADMIN, ROLES.SUPERADMIN),
   deleteProgram
 );
 

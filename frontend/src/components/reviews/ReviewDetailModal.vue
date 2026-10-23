@@ -109,6 +109,7 @@ const statusLabel = computed(() => {
     approved: 'Aprobada',
     pending: 'Pendiente',
     rejected: 'Rechazada',
+    reported: 'Reportada',
   };
 
   return labels[props.review.status];

@@ -97,6 +97,16 @@
               <div class="description-content" v-html="formatDescription(program?.description || '')"></div>
             </section>
 
+            <section v-if="programDynamicFields.length > 0" class="description-section">
+              <h2>Información adicional</h2>
+              <div class="data-grid">
+                <div v-for="field in programDynamicFields" :key="field.fieldId" class="data-item">
+                  <span class="data-label">{{ field.etiqueta }}:</span>
+                  <span class="data-value">{{ getDynamicFieldDisplayValue(field) }}</span>
+                </div>
+              </div>
+            </section>
+
             <!-- Plan de estudios -->
             <section v-if="program?.curriculum" class="curriculum-section">
               <h2>📚 Plan de estudios</h2>
@@ -201,7 +211,7 @@
               <div class="costs-list">
                 <div class="cost-item">
                   <span class="cost-label">Matrícula anual:</span>
-                  <span class="cost-value">{{ formatPrice(program.price) }}</span>
+              <span class="cost-value">{{ formatPrice(program.price || 0) }}</span>
                 </div>
                 <div v-for="(cost, key) in program.cost_breakdown" :key="key" class="cost-item">
                   <span class="cost-label">{{ formatCostLabel(key) }}:</span>
@@ -235,7 +245,7 @@
           <div class="programs-grid">
             <ProgramCard
               v-for="similar in similarPrograms"
-              :key="similar._id"
+              :key="similar.program._id || similar.program.id"
               :program="similar.program"
               :university="similar.university"
             />
@@ -273,12 +283,12 @@ const loading = ref(true);
 // Computed
 const isProgramFavorite = computed(() => {
   if (!program.value || !university.value) return false;
-  return favoritesStore.isProgramFavorite(program.value._id, university.value._id);
+  return favoritesStore.isProgramFavorite(program.value._id || program.value.id || '', university.value._id || university.value.id || '');
 });
 
 const isInComparison = computed(() => {
   if (!program.value || !university.value) return false;
-  return comparisonStore.isProgramInComparison(program.value._id, university.value._id);
+  return comparisonStore.isProgramInComparison(program.value._id || program.value.id || '', university.value._id || university.value.id || '');
 });
 
 const similarPrograms = computed(() => {
@@ -290,7 +300,7 @@ const similarPrograms = computed(() => {
   
   if (!sameUniversity) return [];
   
-  return sameUniversity.programs
+  return (sameUniversity.programs || [])
     .filter(p => 
       p._id !== program.value?._id && 
       p.level === program.value?.level &&
@@ -302,6 +312,25 @@ const similarPrograms = computed(() => {
       university: sameUniversity
     }));
 });
+
+const programDynamicFields = computed(() => {
+  if (!Array.isArray(program.value?.dynamicFields)) return [];
+  return program.value.dynamicFields.filter(
+    (field: any) => field?.visibleInDetail !== false && field?.value !== null && field?.value !== ''
+  );
+});
+
+const getDynamicFieldDisplayValue = (field: any): string => {
+  if (!field) return '-';
+  if (Array.isArray(field.value)) {
+    return field.value.join(', ');
+  }
+  if (field.tipo === 'checkbox') {
+    return field.value === true || field.value === 'true' ? 'Si' : 'No';
+  }
+
+  return field.value || '-';
+};
 
 // Métodos
 const loadProgram = async () => {
@@ -324,7 +353,7 @@ const loadProgram = async () => {
     
     // Buscar programa
     if (university.value) {
-      const foundProgram = university.value.programs.find(
+      const foundProgram = (university.value.programs || []).find(
         p => p._id === programId || p.id === programId
       );
       
@@ -359,7 +388,7 @@ const toggleProgramComparison = () => {
   
   try {
     if (isInComparison.value) {
-      comparisonStore.removeProgramFromComparison(program.value._id, university.value._id);
+      comparisonStore.removeProgramFromComparison(program.value._id || program.value.id || '', university.value._id || university.value.id || '');
       showNotification(`⚖️ "${program.value.name}" removido de comparación`, 'info');
     } else {
       if (comparisonStore.isFull) {
@@ -368,10 +397,10 @@ const toggleProgramComparison = () => {
       }
       
       comparisonStore.addProgramToComparison(
-        program.value._id,
-        university.value._id,
-        program.value.name,
-        university.value.name,
+        program.value._id || program.value.id || '',
+        university.value._id || university.value.id || '',
+        program.value.name || 'Programa',
+        university.value.name || 'Universidad',
         program.value
       );
       showNotification(`⚖️ "${program.value.name}" agregado a comparación`, 'success');
@@ -384,12 +413,12 @@ const toggleProgramComparison = () => {
 
 const writeReview = () => {
   if (!program.value || !university.value) return;
-  router.push(`/write-review?universityId=${university.value._id}&programId=${program.value._id}`);
+  router.push(`/write-review?universityId=${university.value._id || university.value.id || ''}&programId=${program.value._id || program.value.id || ''}`);
 };
 
 const goToUniversity = () => {
   if (!university.value) return;
-  router.push(`/university/${university.value._id}`);
+  router.push(`/university/${university.value._id || university.value.id || ''}`);
 };
 
 const formatPrice = (price: number): string => {
@@ -424,7 +453,7 @@ const formatCostLabel = (key: string): string => {
 const calculateTotalCost = (): string => {
   if (!program.value) return formatPrice(0);
   
-  let total = program.value.price;
+  let total = program.value.price || 0;
   
   if (program.value.cost_breakdown) {
     Object.values(program.value.cost_breakdown).forEach(cost => {
@@ -441,7 +470,7 @@ const shareProgram = () => {
   
   if (navigator.share) {
     navigator.share({
-      title: program.value?.name,
+      title: program.value?.name || 'Programa',
       text: text,
       url: url
     });
@@ -476,7 +505,7 @@ const exportProgram = () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `programa-${program.value.name.replace(/\s+/g, '-')}.json`;
+  a.download = `programa-${(program.value.name || 'programa').replace(/\s+/g, '-')}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

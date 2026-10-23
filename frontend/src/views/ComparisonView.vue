@@ -1,392 +1,273 @@
 <template>
-  <div class="comparison-view">
-    <div class="container">
-      <div class="header">
-        <h1>⚖️ Comparador de Programas</h1>
-        <p>Compara hasta 3 programas diferentes</p>
+  <main class="ea-page">
+    <AppNavbar />
+
+    <section class="ea-container header">
+      <div>
+        <p class="eyebrow">{{ comparisonStore.storageScope === 'account' ? 'Comparacion de cuenta' : 'Comparacion temporal' }}</p>
+        <h1>Comparador</h1>
+        <p>
+          {{ comparisonStore.storageScope === 'account'
+            ? 'Estos elementos se guardan para tu usuario en este navegador.'
+            : 'Estos elementos se guardan temporalmente en este navegador.' }}
+        </p>
       </div>
+      <button v-if="comparisonStore.hasItems" class="danger-btn" type="button" @click="clearComparison">
+        Limpiar comparacion
+      </button>
+    </section>
 
-      <div v-if="comparisonStore.comparisonItems.length === 0" class="empty-state">
-        <div class="empty-icon">📊</div>
-        <h3>No hay programas para comparar</h3>
-        <p>Añade programas desde las universidades para compararlos</p>
-        <button @click="$router.push('/')" class="explore-btn">
-          Explorar Universidades
-        </button>
+    <section class="ea-container tabs">
+      <button
+        type="button"
+        :class="{ active: activeTab === 'universities' }"
+        @click="activeTab = 'universities'"
+      >
+        Universidades ({{ universities.length }})
+      </button>
+      <button
+        type="button"
+        :class="{ active: activeTab === 'programs' }"
+        @click="activeTab = 'programs'"
+      >
+        Programas ({{ programs.length }})
+      </button>
+    </section>
+
+    <section v-if="!comparisonStore.hasItems" class="ea-container empty-state">
+      <h2>No hay elementos en comparacion</h2>
+      <p>Agrega universidades o programas desde sus tarjetas para compararlos aqui.</p>
+      <div class="empty-actions">
+        <button class="ea-btn ea-btn-primary" type="button" @click="router.push('/universities')">Explorar universidades</button>
+        <button class="ea-btn ea-btn-secondary" type="button" @click="router.push('/programs')">Explorar programas</button>
       </div>
+    </section>
 
-      <div v-else class="comparison-content">
-        <!-- Controles -->
-        <div class="controls">
-          <button @click="clearComparison" class="clear-btn">
-            🗑️ Limpiar comparación
-          </button>
-          <span class="item-count">
-            {{ comparisonStore.comparisonItems.length }}/3 programas
-          </span>
-        </div>
-
-        <!-- Tabla de comparación -->
-        <div class="comparison-table">
-          <div class="table-header">
-            <div class="header-cell program-header">Programa</div>
-            <div 
-              v-for="item in comparisonStore.comparisonItems" 
-              :key="item.id"
-              class="header-cell"
-            >
-              <div class="program-card">
-                <h3>{{ item.name }}</h3>
-                <p class="university-name">{{ item.data?.universityName || 'Universidad' }}</p>
-                <button 
-                  @click="removeFromComparison(item.id, item.type)"
-                  class="remove-btn"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Características a comparar -->
-          <div class="table-row">
-            <div class="row-label">🏛️ Universidad</div>
-            <div 
-              v-for="item in comparisonStore.comparisonItems" 
-              :key="item.id"
-              class="row-cell"
-            >
-              {{ item.data?.universityName || 'No especificada' }}
-            </div>
-          </div>
-
-          <div class="table-row">
-            <div class="row-label">📚 Nivel</div>
-            <div 
-              v-for="item in comparisonStore.comparisonItems" 
-              :key="item.id"
-              class="row-cell"
-            >
-              {{ item.data?.level || 'No especificado' }}
-            </div>
-          </div>
-
-          <div class="table-row">
-            <div class="row-label">⏱️ Duración</div>
-            <div 
-              v-for="item in comparisonStore.comparisonItems" 
-              :key="item.id"
-              class="row-cell"
-            >
-              {{ item.data?.duration || 'No especificada' }}
-            </div>
-          </div>
-
-          <div class="table-row">
-            <div class="row-label">💼 Modalidad</div>
-            <div 
-              v-for="item in comparisonStore.comparisonItems" 
-              :key="item.id"
-              class="row-cell"
-            >
-              {{ item.data?.modality || 'No especificada' }}
-            </div>
-          </div>
-
-          <div class="table-row">
-            <div class="row-label">💰 Matrícula</div>
-            <div 
-              v-for="item in comparisonStore.comparisonItems" 
-              :key="item.id"
-              class="row-cell"
-            >
-              {{ formatCurrency(item.data?.tuition) }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Acciones -->
-        <div class="actions">
-          <button @click="exportComparison" class="export-btn">
-            📥 Exportar comparación
-          </button>
-          <button @click="shareComparison" class="share-btn">
-            🔗 Compartir
-          </button>
-        </div>
+    <section v-else-if="activeTab === 'universities'" class="ea-container content">
+      <div v-if="universities.length === 0" class="empty-state inner">
+        <h2>No hay universidades seleccionadas</h2>
+        <p>Agrega universidades desde Inicio o Todas las universidades.</p>
       </div>
-    </div>
-  </div>
+      <div v-else class="comparison-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Campo</th>
+              <th v-for="university in universities" :key="university.id">
+                <div class="item-head">
+                  <div>
+                    <strong>{{ university.name }}</strong>
+                    <p>{{ university.city || 'Ciudad no especificada' }}</p>
+                  </div>
+                  <button type="button" @click="comparisonStore.removeUniversityFromComparison(university.id)">x</button>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Ciudad</td>
+              <td v-for="university in universities" :key="`${university.id}-city`">{{ university.city || '-' }}</td>
+            </tr>
+            <tr>
+              <td>Pais</td>
+              <td v-for="university in universities" :key="`${university.id}-country`">{{ university.country || 'Colombia' }}</td>
+            </tr>
+            <tr>
+              <td>Tipo</td>
+              <td v-for="university in universities" :key="`${university.id}-type`">{{ university.type || 'No disponible' }}</td>
+            </tr>
+            <tr>
+              <td>Programas cargados</td>
+              <td v-for="university in universities" :key="`${university.id}-programs`">{{ university.programs?.length || 0 }}</td>
+            </tr>
+            <tr>
+              <td>Calificacion</td>
+              <td v-for="university in universities" :key="`${university.id}-rating`">{{ university.rating || 'Sin calificacion' }}</td>
+            </tr>
+            <tr>
+              <td>Descripcion</td>
+              <td v-for="university in universities" :key="`${university.id}-description`">{{ university.description || '-' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section v-else class="ea-container content">
+      <div v-if="programs.length === 0" class="empty-state inner">
+        <h2>No hay programas seleccionados</h2>
+        <p>Agrega programas desde el catalogo o el detalle de universidad.</p>
+      </div>
+      <ComparisonTable v-else :programs="programs" @remove="removeProgram" />
+    </section>
+  </main>
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import AppNavbar from '@/components/AppNavbar.vue';
+import ComparisonTable from '@/components/comparison/ComparisonTable.vue';
 import { useComparisonStore } from '@/stores/comparison';
 
 const router = useRouter();
 const comparisonStore = useComparisonStore();
+const activeTab = ref<'universities' | 'programs'>(comparisonStore.viewMode);
 
-const removeFromComparison = (id: string, type: string) => {
-  comparisonStore.removeFromComparison(id, type);
-};
+const universities = computed(() => comparisonStore.universityItems);
+const programs = computed(() => comparisonStore.getProgramComparisonData());
+
+watch(activeTab, (mode) => comparisonStore.setViewMode(mode));
 
 const clearComparison = () => {
-  if (confirm('¿Eliminar todos los programas de la comparación?')) {
+  if (window.confirm('Limpiar todos los elementos de la comparacion?')) {
     comparisonStore.clearComparison();
   }
 };
 
-const formatCurrency = (amount: number) => {
-  if (!amount) return 'No especificado';
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0
-  }).format(amount);
+const removeProgram = (programId: string, universityId: string) => {
+  comparisonStore.removeFromComparison(programId, universityId);
 };
 
-const exportComparison = () => {
-  alert('Exportar comparación (funcionalidad pendiente)');
-};
-
-const shareComparison = () => {
-  alert('Compartir comparación (funcionalidad pendiente)');
-};
+onMounted(() => {
+  comparisonStore.refreshStorageScope();
+  if (comparisonStore.universityCount > 0 && comparisonStore.programCount === 0) {
+    activeTab.value = 'universities';
+  }
+});
 </script>
 
 <style scoped>
-.comparison-view {
-  min-height: 100vh;
-  background-color: #f8f9fa;
-  padding: 2rem 0;
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
+.header,
+.tabs,
+.empty-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .header {
-  text-align: center;
-  margin-bottom: 3rem;
-}
-
-.header h1 {
-  font-size: 2.5rem;
-  color: #333;
-  margin-bottom: 0.5rem;
-}
-
-.header p {
-  color: #666;
-  font-size: 1.1rem;
-}
-
-/* Estado vacío */
-.empty-state {
-  text-align: center;
-  padding: 4rem 2rem;
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
-
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: 1.5rem;
-}
-
-.empty-state h3 {
-  color: #333;
-  margin-bottom: 0.5rem;
-}
-
-.empty-state p {
-  color: #666;
-  margin-bottom: 2rem;
-}
-
-.explore-btn {
-  padding: 12px 24px;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.3s;
-}
-
-.explore-btn:hover {
-  background: #2563eb;
-}
-
-/* Contenido de comparación */
-.comparison-content {
-  background: white;
-  border-radius: 1rem;
-  padding: 2rem;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
-
-.controls {
-  display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #e5e7eb;
+  margin-top: 32px;
+  margin-bottom: 18px;
 }
 
-.clear-btn {
-  padding: 0.5rem 1rem;
-  background: #ef4444;
-  color: white;
-  border: none;
-  border-radius: 0.375rem;
+.eyebrow {
+  margin: 0 0 6px;
+  color: #2563eb;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+.header p,
+.empty-state p,
+.item-head p {
+  color: #64748b;
+}
+
+.tabs {
+  margin-bottom: 16px;
+}
+
+.tabs button,
+.ghost-btn,
+.danger-btn {
+  border: 0;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background 0.3s;
+  font-weight: 800;
+  padding: 10px 14px;
 }
 
-.clear-btn:hover {
+.tabs button,
+.ghost-btn {
+  background: #e2e8f0;
+  color: #1f2937;
+}
+
+.tabs button.active {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.danger-btn {
   background: #dc2626;
+  color: white;
 }
 
-.item-count {
-  color: #6b7280;
-  font-weight: 500;
+.content,
+.empty-state {
+  padding: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--ea-radius-lg);
+  background: white;
+  box-shadow: var(--ea-shadow-sm);
 }
 
-/* Tabla de comparación */
+.empty-state.inner {
+  box-shadow: none;
+  background: #f8fafc;
+}
+
 .comparison-table {
   overflow-x: auto;
 }
 
-.table-header {
-  display: grid;
-  grid-template-columns: 200px repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
+table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.program-header {
-  font-weight: 600;
-  color: #374151;
-}
-
-.header-cell {
-  background: #f8fafc;
-  border-radius: 0.75rem;
+th,
+td {
+  min-width: 190px;
   padding: 1rem;
-}
-
-.program-card {
-  position: relative;
-}
-
-.program-card h3 {
-  margin: 0 0 0.5rem 0;
-  color: #1f2937;
-  font-size: 1.1rem;
-}
-
-.university-name {
-  margin: 0;
-  color: #6b7280;
-  font-size: 0.875rem;
-}
-
-.remove-btn {
-  position: absolute;
-  top: -0.5rem;
-  right: -0.5rem;
-  background: #ef4444;
-  color: white;
-  border: none;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-}
-
-.table-row {
-  display: grid;
-  grid-template-columns: 200px repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
-  padding: 1rem 0;
   border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  vertical-align: top;
 }
 
-.table-row:last-child {
-  border-bottom: none;
+th:first-child,
+td:first-child {
+  min-width: 140px;
+  color: #475569;
+  font-weight: 800;
 }
 
-.row-label {
-  font-weight: 600;
-  color: #374151;
+.item-head {
   display: flex;
-  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
-.row-cell {
-  padding: 0.5rem;
-  color: #4b5563;
+.item-head p {
+  margin: 0.25rem 0 0;
+  font-weight: 400;
 }
 
-/* Acciones */
-.actions {
-  display: flex;
-  gap: 1rem;
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid #e5e7eb;
-  justify-content: center;
-}
-
-.export-btn, .share-btn {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 1rem;
+.item-head button {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #991b1b;
   cursor: pointer;
-  transition: background 0.3s;
+  font-weight: 900;
 }
 
-.export-btn {
-  background: #10b981;
-  color: white;
-}
-
-.export-btn:hover {
-  background: #059669;
-}
-
-.share-btn {
-  background: #3b82f6;
-  color: white;
-}
-
-.share-btn:hover {
-  background: #2563eb;
-}
-
-@media (max-width: 768px) {
-  .header h1 {
-    font-size: 2rem;
-  }
-  
-  .table-header,
-  .table-row {
-    grid-template-columns: 150px repeat(auto-fit, minmax(200px, 1fr));
-  }
-  
-  .actions {
-    flex-direction: column;
+@media (max-width: 720px) {
+  .header {
+    justify-content: flex-start;
   }
 }
 </style>

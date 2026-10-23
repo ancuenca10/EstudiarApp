@@ -16,17 +16,9 @@ import { RouterView } from 'vue-router'
   box-sizing: border-box;
 }
 
-body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #f8f9fa;
-  color: #333;
-  line-height: 1.6;
-}
-
 #app {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  width: 100%;
 }
 
 /* Estilos para scrollbars */

@@ -13,7 +13,26 @@ export type AdminProgram = {
   universidadId?: string;
   estado: 'pendiente' | 'aprobado' | 'rechazado' | string;
   creadoEn?: string;
+  actualizadoPor?: string | null;
+  fechaActualizacion?: string | null;
   fechaAprobacion?: string | null;
+  rechazoMotivo?: string | null;
+  fechaRechazo?: string | null;
+  fuenteUrl?: string | null;
+  fuenteNombre?: string | null;
+  fechaImportacion?: string | null;
+  dynamicFields?: DynamicFieldValue[];
+};
+
+export type ProgramModerationHistoryItem = {
+  id: string;
+  programaId: string;
+  estadoAnterior: string | null;
+  estadoNuevo: string;
+  accion: string;
+  motivo?: string | null;
+  actorRol?: string | null;
+  fecha: string;
 };
 
 export type AdminUniversity = {
@@ -21,14 +40,29 @@ export type AdminUniversity = {
   nombre: string;
   descripcion: string;
   ciudad: string;
+  userId?: string;
   estado?: 'pendiente' | 'aprobado' | string;
+  fuenteUrl?: string | null;
+  fuenteNombre?: string | null;
+  fechaImportacion?: string | null;
   creadoEn?: string;
+  dynamicFields?: DynamicFieldValue[];
+};
+
+export type DynamicFieldValue = {
+  fieldId: string;
+  nombreInterno?: string;
+  etiqueta?: string;
+  tipo?: string;
+  value: string | string[] | boolean | null;
+  orden?: number;
 };
 
 type CreateUserPayload = {
   name: string;
   email: string;
   password: string;
+  role?: UserRole;
 };
 
 type UpdateUserPayload = {
@@ -42,7 +76,11 @@ type CreateUniversityPayload = {
   nombre: string;
   descripcion: string;
   ciudad: string;
+  userId?: string;
   estado?: string;
+  fuenteUrl?: string;
+  fuenteNombre?: string;
+  dynamicFields?: DynamicFieldValue[];
 };
 
 type CreateProgramPayload = {
@@ -53,6 +91,10 @@ type CreateProgramPayload = {
   duracion: string;
   universidadId: string;
   estado?: string;
+  rechazoMotivo?: string;
+  fuenteUrl?: string;
+  fuenteNombre?: string;
+  dynamicFields?: DynamicFieldValue[];
 };
 
 const unwrap = <T>(payload: unknown, keys: string[]): T => {
@@ -69,7 +111,9 @@ const unwrap = <T>(payload: unknown, keys: string[]): T => {
 
 export const useAdminStore = defineStore('admin', () => {
   const users = ref<User[]>([]);
+  const universityUsers = ref<User[]>([]);
   const programs = ref<AdminProgram[]>([]);
+  const programModerationHistory = ref<Record<string, ProgramModerationHistoryItem[]>>({});
   const universities = ref<AdminUniversity[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -99,6 +143,14 @@ export const useAdminStore = defineStore('admin', () => {
     }, 'Error al cargar usuarios');
   };
 
+  const fetchUniversityUsers = async () => {
+    return run(async () => {
+      const response = await api.get('/users/university-accounts');
+      universityUsers.value = unwrap<User[]>(response.data, ['users']);
+      return universityUsers.value;
+    }, 'Error al cargar usuarios UNIVERSITY');
+  };
+
   const createAdmin = async (payload: CreateUserPayload) => {
     return run(async () => {
       const response = await api.post('/users/admins', payload);
@@ -115,6 +167,15 @@ export const useAdminStore = defineStore('admin', () => {
       users.value = [user, ...users.value.filter((item) => item.id !== user.id)];
       return user;
     }, 'Error al crear ASESOR');
+  };
+
+  const createUser = async (payload: CreateUserPayload & { role: UserRole }) => {
+    return run(async () => {
+      const response = await api.post('/users', payload);
+      const user = unwrap<User>(response.data, ['user']);
+      users.value = [user, ...users.value.filter((item) => item.id !== user.id)];
+      return user;
+    }, 'Error al crear usuario');
   };
 
   const changeUserRole = async (userId: string, role: UserRole) => {
@@ -159,6 +220,9 @@ export const useAdminStore = defineStore('admin', () => {
         modalidad: payload.modalidad,
         duracion: payload.duracion,
         universidadId: payload.universidadId,
+        fuenteUrl: payload.fuenteUrl,
+        fuenteNombre: payload.fuenteNombre,
+        dynamicFields: payload.dynamicFields,
       });
       const program = unwrap<AdminProgram>(response.data, ['programa', 'program']);
       programs.value = [program, ...programs.value.filter((item) => item.id !== program.id)];
@@ -176,6 +240,23 @@ export const useAdminStore = defineStore('admin', () => {
     }, 'Error al aprobar programa');
   };
 
+  const changeProgramStatus = async (
+    programId: string,
+    estado: 'aprobado' | 'rechazado',
+    rechazoMotivo?: string
+  ) => {
+    return run(async () => {
+      const response = await api.patch(`/programas/${programId}/status`, {
+        estado,
+        rechazoMotivo,
+      });
+      const program = unwrap<AdminProgram>(response.data, ['programa', 'program']);
+      programs.value = programs.value.map((item) => (item.id === program.id ? program : item));
+      await fetchPrograms();
+      return program;
+    }, 'Error al cambiar estado del programa');
+  };
+
   const updateProgram = async (programId: string, payload: CreateProgramPayload) => {
     return run(async () => {
       const response = await api.put(`/programas/${programId}`, {
@@ -186,6 +267,10 @@ export const useAdminStore = defineStore('admin', () => {
         duracion: payload.duracion,
         universidadId: payload.universidadId,
         estado: payload.estado,
+        rechazoMotivo: payload.rechazoMotivo,
+        fuenteUrl: payload.fuenteUrl,
+        fuenteNombre: payload.fuenteNombre,
+        dynamicFields: payload.dynamicFields,
       });
       const program = unwrap<AdminProgram>(response.data, ['programa', 'program']);
       programs.value = programs.value.map((item) => (item.id === program.id ? program : item));
@@ -198,6 +283,18 @@ export const useAdminStore = defineStore('admin', () => {
       await api.delete(`/programas/${programId}`);
       programs.value = programs.value.filter((item) => item.id !== programId);
     }, 'Error al eliminar programa');
+  };
+
+  const fetchProgramModerationHistory = async (programId: string) => {
+    return run(async () => {
+      const response = await api.get(`/programas/${programId}/moderation-history`);
+      const history = unwrap<ProgramModerationHistoryItem[]>(response.data, ['history', 'historial']);
+      programModerationHistory.value = {
+        ...programModerationHistory.value,
+        [programId]: history,
+      };
+      return history;
+    }, 'Error al cargar historial de moderacion');
   };
 
   const fetchUniversities = async () => {
@@ -237,22 +334,28 @@ export const useAdminStore = defineStore('admin', () => {
 
   return {
     users,
+    universityUsers,
     programs,
+    programModerationHistory,
     universities,
     loading,
     error,
     pendingPrograms,
     fetchUsers,
+    fetchUniversityUsers,
     createAdmin,
     createAsesor,
+    createUser,
     changeUserRole,
     updateUser,
     deleteUser,
     fetchPrograms,
     createProgram,
     approveProgram,
+    changeProgramStatus,
     updateProgram,
     deleteProgram,
+    fetchProgramModerationHistory,
     fetchUniversities,
     createUniversity,
     updateUniversity,

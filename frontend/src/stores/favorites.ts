@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import api from '@/services/api';
+import { useAuthStore } from '@/stores/auth';
+import type { Program, University } from '@/types';
 
 export type FavoriteKind = 'programa' | 'universidad';
 
@@ -29,11 +31,10 @@ type ApiFavorite = {
   };
 };
 
+const GUEST_FAVORITES_KEY = 'guest_favorites';
+
 const toUiType = (tipo: FavoriteKind): FavoriteItem['type'] =>
   tipo === 'programa' ? 'program' : 'university';
-
-const toApiType = (type: string): FavoriteKind =>
-  type === 'program' || type === 'programa' ? 'programa' : 'universidad';
 
 const mapFavorite = (favorite: ApiFavorite): FavoriteItem => ({
   id: favorite.id,
@@ -48,16 +49,63 @@ const mapFavorite = (favorite: ApiFavorite): FavoriteItem => ({
   addedAt: new Date(favorite.creadoEn),
 });
 
+const getEntityId = (item: Partial<University | Program> & { id?: string; _id?: string }) =>
+  item.id || item._id || '';
+
+const getEntityName = (item: Partial<University | Program> & { nombre?: string; name?: string; title?: string }) =>
+  item.name || item.nombre || item.title || 'Sin nombre';
+
+const getEntityDescription = (
+  item: Partial<University | Program> & { descripcion?: string; description?: string }
+) => item.description || item.descripcion || '';
+
+const readGuestFavorites = (): FavoriteItem[] => {
+  try {
+    const raw = localStorage.getItem(GUEST_FAVORITES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Array<Omit<FavoriteItem, 'addedAt'> & { addedAt: string }>;
+    return parsed.map((favorite) => ({
+      ...favorite,
+      addedAt: new Date(favorite.addedAt),
+    }));
+  } catch {
+    localStorage.removeItem(GUEST_FAVORITES_KEY);
+    return [];
+  }
+};
+
+const writeGuestFavorites = (favorites: FavoriteItem[]) => {
+  localStorage.setItem(GUEST_FAVORITES_KEY, JSON.stringify(favorites));
+};
+
 export const useFavoritesStore = defineStore('favorites', () => {
   const favorites = ref<FavoriteItem[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const source = ref<'account' | 'guest'>('guest');
+
+  const isAccountMode = () => {
+    const authStore = useAuthStore();
+    authStore.checkAuth();
+    return authStore.isAuthenticated;
+  };
+
+  const setGuestFavorites = () => {
+    source.value = 'guest';
+    favorites.value = readGuestFavorites();
+  };
 
   const fetchFavorites = async () => {
     try {
       loading.value = true;
       error.value = null;
 
+      if (!isAccountMode()) {
+        setGuestFavorites();
+        return;
+      }
+
+      source.value = 'account';
       const response = await api.get<{ favoritos: ApiFavorite[] }>('/favoritos');
       favorites.value = response.data.favoritos.map(mapFavorite);
     } catch (err) {
@@ -69,6 +117,10 @@ export const useFavoritesStore = defineStore('favorites', () => {
   };
 
   const addFavoriteByReference = async (tipo: FavoriteKind, referenciaId: string) => {
+    if (!isAccountMode()) {
+      throw new Error('Inicia sesion para guardar este favorito en tu cuenta');
+    }
+
     const response = await api.post<{ favorito: ApiFavorite }>('/favoritos', {
       tipo,
       referencia_id: referenciaId,
@@ -87,6 +139,12 @@ export const useFavoritesStore = defineStore('favorites', () => {
   };
 
   const removeFavoriteById = async (favoriteId: string) => {
+    if (source.value === 'guest' || favoriteId.startsWith('guest-')) {
+      favorites.value = favorites.value.filter((favorite) => favorite.id !== favoriteId);
+      writeGuestFavorites(favorites.value);
+      return;
+    }
+
     await api.delete(`/favoritos/${favoriteId}`);
     favorites.value = favorites.value.filter((favorite) => favorite.id !== favoriteId);
   };
@@ -113,7 +171,25 @@ export const useFavoritesStore = defineStore('favorites', () => {
   const isProgramFavorite = (programId: string, _universityId?: string): boolean =>
     Boolean(findFavorite('programa', programId));
 
-  const addUniversityToFavorites = async (university: any) => {
+  const optimisticAdd = (favorite: FavoriteItem) => {
+    const index = favorites.value.findIndex((item) =>
+      item.id === favorite.id ||
+      (item.tipo === favorite.tipo && item.referenciaId === favorite.referenciaId)
+    );
+    if (index >= 0) {
+      favorites.value[index] = favorite;
+    } else {
+      favorites.value.unshift(favorite);
+    }
+  };
+
+  const optimisticRemove = (tipo: FavoriteKind, referenciaId: string) => {
+    favorites.value = favorites.value.filter(
+      (favorite) => !(favorite.tipo === tipo && favorite.referenciaId === referenciaId)
+    );
+  };
+
+  const addUniversityToFavorites = async (university: Partial<University> & { id?: string; _id?: string }) => {
     const universityId = university.id || university._id;
     if (!universityId) {
       throw new Error('Universidad no tiene ID valido');
@@ -127,22 +203,58 @@ export const useFavoritesStore = defineStore('favorites', () => {
     await removeByReference('universidad', universityId);
   };
 
-  const toggleUniversityFavorite = async (university: any) => {
-    const universityId = university.id || university._id;
+  const toggleUniversityFavorite = (university: Partial<University> & { id?: string; _id?: string }) => {
+    const universityId = getEntityId(university);
     if (!universityId) {
       return false;
     }
 
     if (isUniversityFavorite(universityId)) {
-      await removeUniversityFromFavorites(universityId);
+      optimisticRemove('universidad', universityId);
+      if (source.value === 'guest' || !isAccountMode()) {
+        writeGuestFavorites(favorites.value);
+      } else {
+        void removeUniversityFromFavorites(universityId).catch((err) => {
+          error.value = err instanceof Error ? err.message : 'No se pudo eliminar favorito';
+          void fetchFavorites();
+        });
+      }
       return false;
     }
 
-    await addUniversityToFavorites(university);
+    const guestFavorite: FavoriteItem = {
+      id: `guest-university-${universityId}`,
+      type: 'university',
+      tipo: 'universidad',
+      referenciaId: universityId,
+      item: {
+        id: universityId,
+        name: getEntityName(university),
+        description: getEntityDescription(university),
+      },
+      addedAt: new Date(),
+    };
+
+    optimisticAdd({
+      ...guestFavorite,
+      id: isAccountMode() ? `optimistic-university-${universityId}` : guestFavorite.id,
+    });
+
+    if (!isAccountMode()) {
+      source.value = 'guest';
+      writeGuestFavorites(favorites.value);
+      return true;
+    }
+
+    source.value = 'account';
+    void addUniversityToFavorites(university).catch((err) => {
+      error.value = err instanceof Error ? err.message : 'No se pudo guardar favorito';
+      optimisticRemove('universidad', universityId);
+    });
     return true;
   };
 
-  const addProgramToFavorites = async (program: any, _university?: any) => {
+  const addProgramToFavorites = async (program: Partial<Program> & { id?: string; _id?: string }, _university?: Partial<University>) => {
     const programId = program.id || program._id;
     if (!programId) {
       throw new Error('Programa no tiene ID valido');
@@ -156,22 +268,70 @@ export const useFavoritesStore = defineStore('favorites', () => {
     await removeByReference('programa', programId);
   };
 
-  const toggleProgramFavorite = async (program: any, _university?: any) => {
-    const programId = program.id || program._id;
+  const toggleProgramFavorite = (
+    program: Partial<Program> & { id?: string; _id?: string },
+    _university?: Partial<University>
+  ) => {
+    const programId = getEntityId(program);
     if (!programId) {
       return false;
     }
 
     if (isProgramFavorite(programId)) {
-      await removeProgramFromFavorites(programId);
+      optimisticRemove('programa', programId);
+      if (source.value === 'guest' || !isAccountMode()) {
+        writeGuestFavorites(favorites.value);
+      } else {
+        void removeProgramFromFavorites(programId).catch((err) => {
+          error.value = err instanceof Error ? err.message : 'No se pudo eliminar favorito';
+          void fetchFavorites();
+        });
+      }
       return false;
     }
 
-    await addProgramToFavorites(program);
+    const guestFavorite: FavoriteItem = {
+      id: `guest-program-${programId}`,
+      type: 'program',
+      tipo: 'programa',
+      referenciaId: programId,
+      item: {
+        id: programId,
+        name: getEntityName(program),
+        description: getEntityDescription(program),
+      },
+      addedAt: new Date(),
+    };
+
+    optimisticAdd({
+      ...guestFavorite,
+      id: isAccountMode() ? `optimistic-program-${programId}` : guestFavorite.id,
+    });
+
+    if (!isAccountMode()) {
+      source.value = 'guest';
+      writeGuestFavorites(favorites.value);
+      return true;
+    }
+
+    source.value = 'account';
+    void addProgramToFavorites(program).catch((err) => {
+      error.value = err instanceof Error ? err.message : 'No se pudo guardar favorito';
+      optimisticRemove('programa', programId);
+    });
     return true;
   };
 
-  const addFavorite = async (item: any) => addUniversityToFavorites(item);
+  const isFavorite = (referenciaId: string) =>
+    favorites.value.some((favorite) => favorite.referenciaId === referenciaId);
+
+  const addProgramFavorite = (program: Partial<Program> & { id?: string; _id?: string }) =>
+    toggleProgramFavorite(program);
+
+  const removeProgramFavorite = (programId: string, universityId?: string) =>
+    void removeProgramFromFavorites(programId, universityId);
+
+  const addFavorite = async (item: Partial<University> & { id?: string; _id?: string }) => addUniversityToFavorites(item);
   const removeFavorite = async (id: string) => removeUniversityFromFavorites(id);
 
   const universityFavorites = computed(() =>
@@ -189,12 +349,20 @@ export const useFavoritesStore = defineStore('favorites', () => {
   const loadFavorites = fetchFavorites;
   const saveFavorites = () => undefined;
 
+  const clearGuestFavorites = () => {
+    localStorage.removeItem(GUEST_FAVORITES_KEY);
+    if (source.value === 'guest') {
+      favorites.value = [];
+    }
+  };
+
   const getFavoriteProgramsByUniversity = () => [];
 
   return {
     favorites,
     loading,
     error,
+    source,
     universityFavorites,
     programFavorites,
     favoritesCount,
@@ -210,11 +378,15 @@ export const useFavoritesStore = defineStore('favorites', () => {
     addUniversityToFavorites,
     removeUniversityFromFavorites,
     isUniversityFavorite,
+    isFavorite,
     toggleUniversityFavorite,
     addProgramToFavorites,
     removeProgramFromFavorites,
+    addProgramFavorite,
+    removeProgramFavorite,
     isProgramFavorite,
     toggleProgramFavorite,
     getFavoriteProgramsByUniversity,
+    clearGuestFavorites,
   };
 });

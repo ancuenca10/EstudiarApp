@@ -8,6 +8,8 @@ export const env = {
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1h',
+  openAiApiKey: process.env.OPENAI_API_KEY || '',
+  openAiModel: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
 };
 
 export const getJwtSecret = () => {

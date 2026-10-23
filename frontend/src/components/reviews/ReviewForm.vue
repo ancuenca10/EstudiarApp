@@ -11,11 +11,8 @@
     <!-- Calificación -->
     <div class="form-section">
       <label class="form-label">Calificación general *</label>
-      <RatingStars 
-        v-model="formData.rating" 
-        :readonly="false"
-        class="rating-input"
-      />
+      <input v-model.number="formData.rating" type="range" min="1" max="5" step="1" class="rating-range" />
+      <RatingStars :rating="formData.rating" class="rating-input" />
       <div class="rating-labels">
         <span>Malo</span>
         <span>Excelente</span>
@@ -166,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import type { ReviewFormData } from '@/types/reviews';
 import RatingStars from '../RatingStars.vue';
@@ -181,8 +178,10 @@ const emit = defineEmits(['submit', 'cancel']);
 
 const authStore = useAuthStore();
 
+type ReviewFormState = Omit<ReviewFormData, 'entityId' | 'entityType'>;
+
 // Estado del formulario
-const formData = ref<ReviewFormData>({
+const formData = ref<ReviewFormState>({
   rating: 5,
   title: '',
   content: '',
@@ -263,7 +262,7 @@ const handleSubmit = async () => {
       entityId: props.entityId,
       entityType: props.entityType,
       userId: user.id,
-      userName: user.username || 'Usuario',
+      userName: user.username || user.name || 'Usuario',
       rating: formData.value.rating,
       title: formData.value.title.trim(),
       content: formData.value.content.trim(),
@@ -340,6 +339,11 @@ const handleSubmit = async () => {
 
 .rating-input {
   margin-bottom: 0.25rem;
+}
+
+.rating-range {
+  width: 100%;
+  margin-bottom: 0.75rem;
 }
 
 .rating-labels {

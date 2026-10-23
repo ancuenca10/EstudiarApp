@@ -88,7 +88,7 @@ const props = defineProps<{
 }>();
 
 const getPercentage = (rating: number) => {
-  const count = props.stats.ratingDistribution[rating as keyof typeof props.stats.ratingDistribution];
+  const count = props.stats.ratingDistribution[rating as 1 | 2 | 3 | 4 | 5] || 0;
   return props.stats.totalReviews > 0 ? (count / props.stats.totalReviews) * 100 : 0;
 };
 

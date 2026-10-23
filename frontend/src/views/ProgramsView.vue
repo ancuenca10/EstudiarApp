@@ -1,199 +1,297 @@
 <template>
-  <main class="catalog-page">
-    <section class="hero">
-      <div>
-        <p class="eyebrow">Programas aprobados</p>
-        <h1>Explora la oferta academica disponible</h1>
-      </div>
-      <button class="refresh-btn" type="button" @click="programsStore.fetchPrograms">
-        Actualizar
-      </button>
-    </section>
+  <main class="ea-page">
+    <AppNavbar />
 
-    <section v-if="programsStore.isLoading" class="state-panel">
-      Cargando programas...
-    </section>
-
-    <section v-else-if="programsStore.error" class="state-panel error">
-      {{ programsStore.error }}
-    </section>
-
-    <section v-else-if="programsStore.approvedPrograms.length === 0" class="state-panel">
-      No hay programas aprobados publicados todavia.
-    </section>
-
-    <section v-else class="cards-grid">
-      <article
-        v-for="program in programsStore.approvedPrograms"
-        :key="program.id"
-        class="program-card"
-      >
-        <div class="card-header">
-          <span class="badge">{{ program.modalidad }}</span>
-          <strong>{{ formatPrice(program.precio) }}</strong>
+    <section class="programs-hero">
+      <div class="ea-container hero-grid">
+        <div>
+          <p class="ea-kicker">Marketplace academico</p>
+          <h1>Encuentra programas listos para comparar</h1>
+          <p>
+            Explora carreras, modalidades y costos publicados por instituciones del Huila en una vista
+            limpia y facil de revisar.
+          </p>
         </div>
-        <h2>{{ program.nombre }}</h2>
-        <p>{{ program.descripcion }}</p>
-        <dl>
+
+        <div class="hero-search ea-card">
+          <label for="program-search">Buscar programa</label>
           <div>
-            <dt>Duracion</dt>
-            <dd>{{ program.duracion }}</dd>
+            <input
+              id="program-search"
+              v-model="search"
+              type="search"
+              placeholder="Derecho, Medicina, Ingenieria..."
+            />
+            <button class="ea-btn ea-btn-primary" type="button">Buscar</button>
           </div>
-          <div>
-            <dt>Estado</dt>
-            <dd>{{ program.estado }}</dd>
-          </div>
-        </dl>
-      </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="ea-container toolbar">
+      <div>
+        <strong>{{ filteredPrograms.length }}</strong>
+        <span>programas aprobados</span>
+      </div>
+      <div class="toolbar-actions">
+        <button class="ea-btn ea-btn-secondary" type="button" @click="router.push('/comparison')">
+          Comparar ({{ comparisonStore.programCount }})
+        </button>
+        <button class="ea-btn ea-btn-soft" type="button" @click="programsStore.fetchPrograms">
+          Actualizar
+        </button>
+      </div>
+    </section>
+
+    <section class="ea-container content-layout">
+      <aside class="filters-panel ea-card">
+        <h2>Filtros</h2>
+        <label>
+          Modalidad
+          <select v-model="modality">
+            <option value="">Todas</option>
+            <option v-for="item in modalities" :key="item" :value="item">{{ item }}</option>
+          </select>
+        </label>
+        <label>
+          Orden
+          <select v-model="sortBy">
+            <option value="name">Nombre</option>
+            <option value="price">Menor precio</option>
+          </select>
+        </label>
+      </aside>
+
+      <div class="results">
+        <section v-if="programsStore.isLoading" class="ea-card ea-loading">
+          Cargando programas...
+        </section>
+
+        <section v-else-if="programsStore.error" class="ea-card ea-error">
+          {{ programsStore.error }}
+        </section>
+
+        <section v-else-if="filteredPrograms.length === 0" class="ea-card ea-empty">
+          No hay programas aprobados publicados todavia.
+        </section>
+
+        <section v-else class="ea-grid ea-grid-3">
+          <CardProgram
+            v-for="program in filteredPrograms"
+            :key="program.id"
+            :program="program"
+            :is-compared="isProgramInComparison(program)"
+            :is-favorite="favoritesStore.isProgramFavorite(program.id)"
+            @view="goToProgram"
+            @compare="toggleProgramComparison"
+            @favorite="favoritesStore.toggleProgramFavorite(program)"
+          />
+        </section>
+      </div>
     </section>
   </main>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
-import { useProgramsStore } from '@/stores/programs';
+import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import AppNavbar from '@/components/AppNavbar.vue';
+import CardProgram from '@/components/CardProgram.vue';
+import { useComparisonStore } from '@/stores/comparison';
+import { useFavoritesStore } from '@/stores/favorites';
+import { useProgramsStore, type ProgramCardData } from '@/stores/programs';
 
+const router = useRouter();
 const programsStore = useProgramsStore();
+const comparisonStore = useComparisonStore();
+const favoritesStore = useFavoritesStore();
+const search = ref('');
+const modality = ref('');
+const sortBy = ref<'name' | 'price'>('name');
 
-const formatPrice = (price: number) => {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    maximumFractionDigits: 0,
-  }).format(price);
+const modalities = computed(() =>
+  Array.from(new Set(programsStore.approvedPrograms.map((program) => program.modalidad).filter(Boolean))).sort()
+);
+
+const filteredPrograms = computed(() => {
+  const term = search.value.trim().toLowerCase();
+  const items = programsStore.approvedPrograms.filter((program) => {
+    const matchesTerm = !term ||
+      program.nombre.toLowerCase().includes(term) ||
+      (program.universityName || '').toLowerCase().includes(term);
+    const matchesModality = !modality.value || program.modalidad === modality.value;
+    return matchesTerm && matchesModality;
+  });
+
+  return [...items].sort((left, right) => {
+    if (sortBy.value === 'price') return Number(left.precio || 0) - Number(right.precio || 0);
+    return left.nombre.localeCompare(right.nombre);
+  });
+});
+
+const getUniversityName = (program: ProgramCardData) =>
+  program.universityName || 'Universidad no especificada';
+
+const isProgramInComparison = (program: ProgramCardData) =>
+  comparisonStore.isProgramInComparison(program.id, program.universidadId || program.universityId || '');
+
+const toggleProgramComparison = (program: Partial<ProgramCardData>) => {
+  const typedProgram = program as ProgramCardData;
+  const universityId = typedProgram.universidadId || typedProgram.universityId;
+  if (!typedProgram.id || !universityId) {
+    alert('No se puede comparar este programa porque no tiene universidad asociada.');
+    return;
+  }
+
+  if (isProgramInComparison(typedProgram)) {
+    comparisonStore.removeProgramFromComparison(typedProgram.id, universityId);
+    return;
+  }
+
+  try {
+    comparisonStore.addProgramToComparison(typedProgram.id, universityId, typedProgram.nombre, getUniversityName(typedProgram), {
+      duration: typedProgram.duracion,
+      modality: typedProgram.modalidad,
+      price: typedProgram.precio,
+    });
+  } catch (error) {
+    alert(error instanceof Error ? error.message : 'No se pudo agregar a comparacion');
+  }
+};
+
+const goToProgram = (program: Partial<ProgramCardData>) => {
+  if (program.universidadId && program.id) {
+    router.push(`/program/${program.universidadId}/${program.id}`);
+  }
 };
 
 onMounted(() => {
-  programsStore.fetchPrograms();
+  comparisonStore.refreshStorageScope();
+  void favoritesStore.fetchFavorites();
+  void programsStore.fetchPrograms();
 });
 </script>
 
 <style scoped>
-.catalog-page {
-  min-height: 100vh;
-  background: #f5f7fb;
-  padding: 32px;
+.programs-hero {
+  padding: 56px 0 30px;
 }
 
-.hero {
-  max-width: 1180px;
-  margin: 0 auto 24px;
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 28px;
+  align-items: center;
+}
+
+h1 {
+  max-width: 760px;
+  margin: 0;
+  color: var(--ea-text);
+  font-size: clamp(2.2rem, 5vw, 4.4rem);
+  line-height: 1.02;
+}
+
+.programs-hero p:not(.ea-kicker) {
+  max-width: 620px;
+  margin: 18px 0 0;
+  color: var(--ea-muted);
+  font-size: 1.08rem;
+}
+
+.hero-search {
+  padding: 20px;
+}
+
+.hero-search label,
+.filters-panel label {
+  display: grid;
+  gap: 8px;
+  color: var(--ea-muted);
+  font-weight: 800;
+}
+
+.hero-search div {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+input,
+select {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--ea-border);
+  border-radius: var(--ea-radius-sm);
+  background: #fff;
+  color: var(--ea-text);
+  outline: 0;
+  padding: 0 16px;
+}
+
+.toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  margin-bottom: 22px;
 }
 
-.eyebrow {
-  margin: 0 0 6px;
-  color: #5164d9;
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 0.78rem;
+.toolbar strong {
+  display: block;
+  font-size: 1.8rem;
 }
 
-h1 {
-  margin: 0;
-  color: #1f2937;
-  font-size: 2rem;
+.toolbar span {
+  color: var(--ea-muted);
 }
 
-.refresh-btn {
-  border: 0;
-  border-radius: 8px;
-  background: #5164d9;
-  color: white;
-  padding: 10px 16px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.cards-grid {
-  max-width: 1180px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 18px;
-}
-
-.program-card,
-.state-panel {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-}
-
-.program-card {
-  padding: 20px;
-}
-
-.card-header {
+.toolbar-actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 10px;
 }
 
-.badge {
-  background: #eef2ff;
-  color: #3949ab;
-  border-radius: 999px;
-  padding: 5px 10px;
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-h2 {
-  margin: 0 0 10px;
-  color: #111827;
-  font-size: 1.2rem;
-}
-
-p {
-  color: #4b5563;
-  line-height: 1.5;
-}
-
-dl {
+.content-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin: 18px 0 0;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 22px;
+  padding-bottom: 56px;
 }
 
-dt {
-  color: #6b7280;
-  font-size: 0.78rem;
+.filters-panel {
+  align-self: start;
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  position: sticky;
+  top: 96px;
 }
 
-dd {
-  margin: 2px 0 0;
-  color: #111827;
-  font-weight: 700;
+.filters-panel h2 {
+  margin: 0;
+  font-size: 1.1rem;
 }
 
-.state-panel {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 28px;
-  color: #374151;
+.results {
+  min-width: 0;
 }
 
-.state-panel.error {
-  color: #b42318;
-  border-color: #fecaca;
-  background: #fff7f7;
+@media (max-width: 920px) {
+  .hero-grid,
+  .content-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .filters-panel {
+    position: static;
+  }
 }
 
 @media (max-width: 640px) {
-  .catalog-page {
-    padding: 20px;
-  }
-
-  .hero {
-    align-items: flex-start;
+  .toolbar,
+  .toolbar-actions,
+  .hero-search div {
+    align-items: stretch;
     flex-direction: column;
   }
 }

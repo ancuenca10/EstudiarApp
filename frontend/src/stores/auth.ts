@@ -18,8 +18,18 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!token.value || !!localStorage.getItem(TOKEN_KEY));
   const isAdmin = computed(() => ['ADMIN', 'SUPERADMIN'].includes(roleValue(user.value?.role) || ''));
   const isSuperAdmin = computed(() => roleValue(user.value?.role) === 'SUPERADMIN');
+  const canAccessAdminPanel = computed(() =>
+    ['SUPERADMIN', 'ADMIN', 'ASESOR'].includes(roleValue(user.value?.role) || '')
+  );
   const isEditor = computed(() => ['UNIVERSITY', 'ASESOR', 'EDITOR'].includes(roleValue(user.value?.role) || ''));
+  const canUseImportAssistant = computed(() =>
+    ['SUPERADMIN', 'ADMIN', 'ASESOR'].includes(roleValue(user.value?.role) || '')
+  );
   const isUser = computed(() => roleValue(user.value?.role) === 'USER');
+  const isStudent = computed(() =>
+    ['STUDENT', 'USER'].includes(roleValue(user.value?.role) || '') ||
+    user.value?.tipoUsuario?.toLowerCase?.() === 'student'
+  );
   const userRole = computed(() => user.value?.role || 'USER');
 
   const persistSession = (authToken: string, authUser: User, rememberMe?: boolean) => {
@@ -74,6 +84,31 @@ export const useAuthStore = defineStore('auth', () => {
       };
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Error en el registro';
+      return { success: false, error: error.value };
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  const registerStudent = async (data: RegisterData) => {
+    try {
+      isLoading.value = true;
+      error.value = null;
+
+      const response = await authService.registerStudent(data);
+
+      user.value = response.user;
+      token.value = response.token;
+      refreshToken.value = response.refreshToken || null;
+      persistSession(response.token, response.user, true);
+
+      return {
+        success: true,
+        user: response.user,
+        requiresEmailVerification: response.requiresEmailVerification,
+      };
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Error en el registro de estudiante';
       return { success: false, error: error.value };
     } finally {
       isLoading.value = false;
@@ -142,12 +177,16 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isAdmin,
     isSuperAdmin,
+    canAccessAdminPanel,
     isEditor,
+    canUseImportAssistant,
     isUser,
+    isStudent,
     userRole,
     hasPermission,
     login,
     register,
+    registerStudent,
     logout,
     checkAuth,
     updateProfile,

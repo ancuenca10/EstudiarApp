@@ -85,7 +85,7 @@
       <h6>🚨 Reportes:</h6>
       <div v-for="(report, index) in review.reports.slice(0, 3)" :key="index" class="report-item">
         <div class="report-reason">{{ report.reason }}</div>
-        <div class="report-date">{{ formatDate(report.date) }}</div>
+        <div class="report-date">{{ formatDate(report.date || report.createdAt || new Date()) }}</div>
       </div>
       <div v-if="review.reports.length > 3" class="more-reports">
         +{{ review.reports.length - 3 }} reportes más...

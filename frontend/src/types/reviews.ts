@@ -1,12 +1,11 @@
-// src/types/reviews.ts
 export interface Review {
   id: string;
-  entityId: string; // ID de la universidad o programa
+  entityId: string;
   entityType: 'university' | 'program';
   userId: string;
   userName: string;
   userAvatar?: string;
-  rating: number; // 1-5
+  rating: number;
   title: string;
   content: string;
   pros: string[];
@@ -17,11 +16,16 @@ export interface Review {
   createdAt: Date;
   updatedAt?: Date;
   isVerifiedStudent: boolean;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'reported';
   universityReply?: string;
   replyDate?: Date;
-  studyYear?: number; // Año de estudio (1, 2, 3, 4, 5+)
-  graduationYear?: number; // Año de graduación
+  studyYear?: number;
+  graduationYear?: number;
+  referenciaNombre?: string | null;
+  programId?: string;
+  universityId?: string;
+  reports?: Array<{ reason: string; userId?: string; createdAt?: Date; date?: Date }>;
+  rejectionReason?: string;
 }
 
 export interface ReviewStats {
@@ -31,8 +35,8 @@ export interface ReviewStats {
   totalReviews: number;
   ratingDistribution: Record<number, number>;
   wouldRecommendPercentage: number;
-  pros: string[]; // Pros más comunes
-  cons: string[]; // Contras más comunes
+  pros: string[];
+  cons: string[];
 }
 
 export interface ReviewFormData {
@@ -44,6 +48,17 @@ export interface ReviewFormData {
   pros: string[];
   cons: string[];
   wouldRecommend: boolean;
+  isVerifiedStudent?: boolean;
   studyYear?: number;
   graduationYear?: number;
+}
+
+export interface ReviewFilters {
+  minRating?: number;
+  verifiedOnly?: boolean;
+  withContentOnly?: boolean;
+  hasReply?: boolean;
+  withReplies?: boolean;
+  helpfulOnly?: boolean;
+  sortBy?: 'recent' | 'helpful' | 'rating' | 'highest' | 'lowest' | 'oldest';
 }

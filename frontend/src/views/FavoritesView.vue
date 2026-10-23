@@ -1,33 +1,50 @@
 <template>
-  <main class="favorites-view">
-    <section class="header">
+  <main class="ea-page">
+    <AppNavbar />
+
+    <section class="ea-container header">
       <div>
-        <p class="eyebrow">Cuenta personal</p>
+        <p class="eyebrow">{{ authStore.isAuthenticated ? 'Cuenta personal' : 'Favoritos temporales' }}</p>
         <h1>Mis favoritos</h1>
+        <p class="subtitle">
+          {{ authStore.isAuthenticated
+            ? 'Estos favoritos estan vinculados a tu cuenta.'
+            : 'Estos favoritos se guardan solo en este navegador. Inicia sesion para guardarlos en tu cuenta.' }}
+        </p>
       </div>
-      <button type="button" class="refresh-btn" @click="favoritesStore.fetchFavorites">
-        Actualizar
-      </button>
+      <div class="header-actions">
+        <button v-if="!authStore.isAuthenticated" type="button" class="ea-btn ea-btn-secondary" @click="favoritesStore.clearGuestFavorites">
+          Limpiar temporales
+        </button>
+        <button type="button" class="ea-btn ea-btn-primary" @click="favoritesStore.fetchFavorites">
+          Actualizar
+        </button>
+      </div>
     </section>
 
-    <section v-if="favoritesStore.loading" class="state-card">
+    <section v-if="favoritesStore.loading" class="ea-container state-card ea-card">
       Cargando favoritos...
     </section>
 
-    <section v-else-if="favoritesStore.error" class="state-card error">
+    <section v-else-if="favoritesStore.error" class="ea-container state-card error">
       <h2>No pudimos cargar tus favoritos</h2>
       <p>{{ favoritesStore.error }}</p>
     </section>
 
-    <section v-else-if="favoritesStore.favoritesCount === 0" class="state-card">
+    <section v-else-if="favoritesStore.favoritesCount === 0" class="ea-container state-card ea-card">
       <h2>No tienes favoritos guardados</h2>
       <p>Explora programas y universidades para guardarlos aqui.</p>
-      <button type="button" class="refresh-btn" @click="router.push('/programs')">
-        Explorar programas
-      </button>
+      <div class="empty-actions">
+        <button type="button" class="ea-btn ea-btn-primary" @click="router.push('/universities')">
+          Ver universidades
+        </button>
+        <button type="button" class="ea-btn ea-btn-secondary" @click="router.push('/programs')">
+          Explorar programas
+        </button>
+      </div>
     </section>
 
-    <section v-else class="content">
+    <section v-else class="ea-container content">
       <div class="tabs">
         <button
           type="button"
@@ -57,6 +74,7 @@
           v-for="favorite in visibleFavorites"
           :key="favorite.id"
           class="favorite-card"
+          @click="goToFavorite(favorite)"
         >
           <div class="card-header">
             <span class="badge">{{ favorite.tipo }}</span>
@@ -64,7 +82,7 @@
               type="button"
               class="remove-btn"
               :disabled="removingId === favorite.id"
-              @click="removeFavorite(favorite.id)"
+              @click.stop="removeFavorite(favorite.id)"
             >
               Quitar
             </button>
@@ -73,6 +91,9 @@
           <h2>{{ favorite.item.name }}</h2>
           <p>{{ favorite.item.description || 'Sin descripcion disponible.' }}</p>
           <small>Guardado: {{ formatDate(favorite.addedAt) }}</small>
+          <button type="button" class="open-btn" @click.stop="goToFavorite(favorite)">
+            Abrir
+          </button>
         </article>
       </div>
     </section>
@@ -82,10 +103,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useFavoritesStore } from '@/stores/favorites';
+import AppNavbar from '@/components/AppNavbar.vue';
+import { useAuthStore } from '@/stores/auth';
+import { useFavoritesStore, type FavoriteItem } from '@/stores/favorites';
 
 const router = useRouter();
 const favoritesStore = useFavoritesStore();
+const authStore = useAuthStore();
 const activeTab = ref<'all' | 'universidad' | 'programa'>('all');
 const removingId = ref<string | null>(null);
 
@@ -108,6 +132,15 @@ const removeFavorite = async (favoriteId: string) => {
   }
 };
 
+const goToFavorite = (favorite: FavoriteItem) => {
+  if (favorite.tipo === 'universidad') {
+    router.push(`/university/${favorite.referenciaId}`);
+    return;
+  }
+
+  router.push('/programs');
+};
+
 const formatDate = (date: Date) =>
   new Intl.DateTimeFormat('es-CO', {
     year: 'numeric',
@@ -116,38 +149,39 @@ const formatDate = (date: Date) =>
   }).format(date);
 
 onMounted(() => {
+  authStore.checkAuth();
   favoritesStore.fetchFavorites();
 });
 </script>
 
 <style scoped>
-.favorites-view {
-  min-height: 100vh;
-  background: #f8fafc;
-  padding: 32px;
-}
-
-.header,
-.content,
-.state-card {
-  max-width: 1180px;
-  margin: 0 auto;
-}
-
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  margin-top: 32px;
   margin-bottom: 24px;
+}
+
+.header-actions,
+.empty-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .eyebrow {
   margin: 0 0 6px;
-  color: #e11d48;
+  color: var(--ea-primary);
   font-weight: 700;
   text-transform: uppercase;
   font-size: 0.78rem;
+}
+
+.subtitle {
+  color: #64748b;
+  margin: 8px 0 0;
 }
 
 h1,
@@ -156,19 +190,13 @@ h2 {
   color: #111827;
 }
 
-.refresh-btn,
+.open-btn,
 .tabs button,
 .remove-btn {
   border: 0;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 700;
-}
-
-.refresh-btn {
-  background: #e11d48;
-  color: white;
-  padding: 10px 16px;
 }
 
 .state-card {
@@ -215,7 +243,14 @@ h2 {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 20px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--ea-shadow-sm);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.favorite-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
 }
 
 .card-header {
@@ -242,6 +277,13 @@ h2 {
   padding: 8px 10px;
 }
 
+.open-btn {
+  background: #2563eb;
+  color: white;
+  margin-top: 16px;
+  padding: 9px 12px;
+}
+
 .remove-btn:disabled {
   cursor: wait;
   opacity: 0.6;
@@ -262,13 +304,14 @@ h2 {
 }
 
 @media (max-width: 640px) {
-  .favorites-view {
-    padding: 20px;
-  }
-
   .header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .topbar {
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 }
 </style>

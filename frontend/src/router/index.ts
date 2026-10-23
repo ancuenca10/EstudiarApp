@@ -60,6 +60,18 @@ const router = createRouter({
       meta: { title: 'Todos los Programas' }
     },
     {
+      path: '/becas',
+      name: 'becas',
+      component: () => import('@/views/BecasView.vue'),
+      meta: { title: 'Becas' }
+    },
+    {
+      path: '/becas/:id',
+      name: 'beca-detail',
+      component: () => import('@/views/BecaDetailView.vue'),
+      meta: { title: 'Detalle de Beca' }
+    },
+    {
       path: '/search',
       name: 'search',
       component: () => import('@/views/SearchView.vue'),
@@ -79,45 +91,148 @@ const router = createRouter({
       meta: { requiresGuest: true, title: 'Registrarse' }
     },
     {
+      path: '/forgot-password',
+      name: 'forgot-password',
+      component: () => import('@/views/auth/ForgotPassword.vue'),
+      meta: { requiresGuest: true, title: 'Recuperar contrasena' }
+    },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: () => import('@/views/auth/ResetPassword.vue'),
+      meta: { requiresGuest: true, title: 'Restablecer contrasena' }
+    },
+    {
       path: '/profile',
       name: 'profile',
       alias: '/perfil',
       component: () => import('@/views/auth/ProfileView.vue'),
       meta: { requiresAuth: true, title: 'Mi Perfil' }
     },
+    {
+      path: '/student',
+      name: 'student-dashboard',
+      component: () => import('@/views/student/DashboardView.vue'),
+      meta: { requiresAuth: true, roles: ['STUDENT'], title: 'Panel Estudiante' }
+    },
+    {
+      path: '/student/profile',
+      name: 'student-profile',
+      component: () => import('@/views/student/ProfileView.vue'),
+      meta: { requiresAuth: true, roles: ['STUDENT'], title: 'Perfil Estudiante' }
+    },
+    {
+      path: '/student/preferences',
+      name: 'student-preferences',
+      component: () => import('@/views/student/ProfileView.vue'),
+      meta: { requiresAuth: true, roles: ['STUDENT'], title: 'Preferencias Estudiante' }
+    },
+    {
+      path: '/student/favorites',
+      name: 'student-favorites',
+      component: () => import('@/views/student/FavoritesView.vue'),
+      meta: { requiresAuth: true, roles: ['STUDENT'], title: 'Favoritos Estudiante' }
+    },
+    {
+      path: '/student/comparisons',
+      name: 'student-comparisons',
+      component: () => import('@/views/student/ComparisonView.vue'),
+      meta: { requiresAuth: true, roles: ['STUDENT'], title: 'Comparador Estudiante' }
+    },
+    {
+      path: '/student/plans',
+      name: 'student-plans',
+      component: () => import('@/views/student/PlansView.vue'),
+      meta: { requiresAuth: true, roles: ['STUDENT'], title: 'Planes Estudiante' }
+    },
+    {
+      path: '/student/applications',
+      name: 'student-applications',
+      component: () => import('@/views/student/ApplicationsView.vue'),
+      meta: { requiresAuth: true, roles: ['STUDENT'], title: 'Inscripciones Estudiante' }
+    },
+    {
+      path: '/student/applications/:id',
+      name: 'student-application-detail',
+      component: () => import('@/views/student/ApplicationDetailView.vue'),
+      meta: { requiresAuth: true, roles: ['STUDENT'], title: 'Detalle de Inscripcion' }
+    },
     // Rutas de administración (opcional para futuro)
     {
       path: '/admin',
       name: 'admin',
       component: () => import('@/views/admin/DashboardView.vue'),
-      meta: { requiresAuth: true, requiresSuperAdmin: true, title: 'Panel de Administración' }
+      meta: { requiresAuth: true, roles: ['SUPERADMIN', 'ADMIN', 'ASESOR'], title: 'Panel de Administración' }
     },
     {
       path: '/admin/usuarios',
       name: 'admin-users',
       alias: '/admin/users',
       component: () => import('@/views/admin/UsersView.vue'),
-      meta: { requiresAuth: true, requiresSuperAdmin: true, title: 'Gestionar Usuarios' }
+      meta: { requiresAuth: true, roles: ['SUPERADMIN'], title: 'Gestionar Usuarios' }
     },
     {
       path: '/admin/programas',
       name: 'admin-programs',
       alias: '/admin/programs',
       component: () => import('@/views/admin/ProgramsView.vue'),
-      meta: { requiresAuth: true, requiresSuperAdmin: true, title: 'Aprobar Programas' }
+      meta: { requiresAuth: true, roles: ['SUPERADMIN', 'ADMIN', 'ASESOR'], title: 'Aprobar Programas' }
     },
     {
-      path: '/admin/universities',
+      path: '/admin/universidades',
       name: 'admin-universities',
-      alias: '/admin/universidades',
+      alias: '/admin/universities',
       component: () => import('@/views/admin/UniversitiesView.vue'),
-      meta: { requiresAuth: true, requiresSuperAdmin: true, title: 'Administrar Universidades' }
+      meta: { requiresAuth: true, roles: ['SUPERADMIN', 'ADMIN', 'ASESOR'], title: 'Administrar Universidades' }
     },
     {
       path: '/admin/reviews',
       name: 'admin-reviews',
+      alias: ['/admin/resenas', '/admin/reseñas'],
       component: () => import('@/views/admin/ReviewsView.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true, title: 'Moderar Reseñas' }
+      meta: { requiresAuth: true, roles: ['SUPERADMIN', 'ADMIN', 'ASESOR'], title: 'Moderar Resenas' }
+    },
+    {
+      path: '/admin/parametrizacion',
+      name: 'admin-parametrizacion',
+      component: () => import('@/views/admin/ParametrizacionView.vue'),
+      meta: { requiresAuth: true, roles: ['SUPERADMIN'], title: 'Parametrizacion' }
+    },
+    {
+      path: '/admin/configuracion-ia',
+      name: 'admin-ai-settings',
+      component: () => import('@/views/admin/AiSettingsView.vue'),
+      meta: { requiresAuth: true, roles: ['SUPERADMIN'], title: 'Configuracion IA' }
+    },
+    {
+      path: '/admin/becas',
+      name: 'admin-becas',
+      component: () => import('@/views/admin/BecasView.vue'),
+      meta: { requiresAuth: true, roles: ['SUPERADMIN', 'ADMIN', 'ASESOR'], title: 'Administrar Becas' }
+    },
+    {
+      path: '/admin/asistente-carga',
+      name: 'admin-import-assistant',
+      component: () => import('@/views/admin/ImportAssistantView.vue'),
+      meta: { requiresAuth: true, roles: ['SUPERADMIN', 'ADMIN', 'ASESOR'], title: 'Asistente de Carga' }
+    },
+    {
+      path: '/universidad',
+      name: 'university-panel',
+      component: () => import('@/views/university/DashboardView.vue'),
+      meta: { requiresAuth: true, roles: ['UNIVERSITY'], title: 'Panel Universidad' }
+    },
+    {
+      path: '/universidad/programas',
+      name: 'university-panel-programs',
+      component: () => import('@/views/university/MyProgramsView.vue'),
+      meta: { requiresAuth: true, roles: ['UNIVERSITY'], title: 'Mis Programas' }
+    },
+    {
+      path: '/universidad/becas',
+      name: 'university-panel-becas',
+      component: () => import('@/views/university/MyBecasView.vue'),
+      meta: { requiresAuth: true, roles: ['UNIVERSITY'], title: 'Mis Becas' }
     },
     // Ruta 404 - Not Found
     {
@@ -147,7 +262,12 @@ router.beforeEach((to, from, next) => {
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
   const requiresGuest = to.matched.some(record => record.meta.requiresGuest);
   const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin);
-  const requiresSuperAdmin = to.matched.some(record => record.meta.requiresSuperAdmin);
+  const requiresImportAssistant = to.matched.some(record => record.meta.requiresImportAssistant);
+  const allowedRoles = to.matched.flatMap(record => {
+    const roles = record.meta.roles;
+    return Array.isArray(roles) ? roles.map((role) => String(role).toUpperCase()) : [];
+  });
+  const currentRole = authStore.user?.role?.toUpperCase();
 
   if (requiresAuth && !authStore.isAuthenticated) {
     next({ name: 'login', query: { redirect: to.fullPath } });
@@ -155,7 +275,12 @@ router.beforeEach((to, from, next) => {
   }
 
   if (requiresGuest && authStore.isAuthenticated) {
-    next({ path: '/perfil' });
+    next(authStore.isStudent ? { name: 'student-dashboard' } : { path: '/perfil' });
+    return;
+  }
+
+  if ((to.name === 'profile' || to.path === '/perfil') && authStore.isStudent) {
+    next({ name: 'student-profile' });
     return;
   }
 
@@ -164,7 +289,16 @@ router.beforeEach((to, from, next) => {
     return;
   }
 
-  if (requiresSuperAdmin && !authStore.isSuperAdmin) {
+  if (
+    allowedRoles.length > 0 &&
+    (!currentRole || !allowedRoles.includes(currentRole)) &&
+    !(allowedRoles.includes('STUDENT') && authStore.isStudent)
+  ) {
+    next(authStore.canAccessAdminPanel ? { name: 'admin' } : { name: 'home' });
+    return;
+  }
+
+  if (requiresImportAssistant && !authStore.canUseImportAssistant) {
     next({ name: 'home' });
     return;
   }
